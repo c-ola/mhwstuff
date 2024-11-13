@@ -1,2 +1,0 @@
-C:\Users\nikol\source\repos\mhwstex\x64\Debug\dstorage.dll
-C:\Users\nikol\source\repos\mhwstex\x64\Debug\dstoragecore.dll
