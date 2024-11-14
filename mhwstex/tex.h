@@ -1,8 +1,8 @@
 #pragma once
 
+#include "gdeflate.h"
 #include <cstdint>
 #include <vector>
-#include "gdeflate.h"
 
 typedef uint16_t uint12_t;
 typedef uint16_t uint4_t;
@@ -19,8 +19,8 @@ struct TexHeader {
     uint16_t width;
     uint16_t height;
     uint16_t depth;
-    uint12_t texs; //12 bits
-    uint4_t mips; //4 bits;
+    uint12_t texs; // 12 bits
+    uint4_t mips;  // 4 bits;
     uint32_t format;
     uint32_t tile;
     uint32_t option_flag;
@@ -33,11 +33,12 @@ struct TexHeader {
     std::vector<std::vector<MipHeader>> mip_headers;
 
     void print();
+    void write(std::ofstream &file);
+    static TexHeader parse(std::ifstream &file);
 };
 
 struct Tex {
     TexHeader header;
     GDeflateData gdeflate_data;
 
-    void parse(const char* file_name);
 };

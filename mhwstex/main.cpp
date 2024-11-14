@@ -1,6 +1,9 @@
 //#include <dstorage.h>
 //#include <wrl.h>
+#include <cstdint>
+#include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 #include <stdexcept>
 //#include <codecvt>
@@ -15,23 +18,69 @@
 #include "gdeflate.h"
 
 #include "libpng16/png.h"
+#include <filesystem>
 
 
 bool writePNG(const char* filename, uint8_t* buffer, int width, int height);
 
 void decompress_texture(const char* file_name) {
-    Tex texture = {};
-    texture.parse(file_name);
-    texture.header.print();
+    std::ifstream file(file_name, std::ios::in | std::ios::binary);
+    TexHeader th = TexHeader::parse(file);
+    th.print();
     //texture.gdeflate_data.header.print();
+    
+    auto sections = std::vector<GDefSection>(th.mips*th.texs);
+    GDefSection section = {};
+    for (int i = 0; i < th.mips; i++) {
+        file.read((char*)&section, sizeof(GDefSection));
+        printf("GDeflate: %d, %d\n", section.compressed_size, section.offset);
+        sections[i] = section;
+    }
+    for (int i = 0; i < 1; i++) {
+        auto section = sections[0];
+        auto mip = th.mip_headers[0][i];
+        size_t out_size = mip.size;
+        size_t in_size = section.compressed_size;
+        printf("GDeflate: %d, %d\n", section.compressed_size, section.offset);
 
-    size_t out_size = texture.header.mip_headers[0][0].size;
-    uint8_t* output = (uint8_t*)malloc(texture.header.mip_headers[0][0].size);
-    size_t in_size = texture.gdeflate_data.sections[0].compressed_size;
-    GDeflate::Decompress(output, out_size, texture.gdeflate_data.data, in_size, 1);
-    writePNG("image.png", output, texture.header.width, texture.header.height);
-    free(output);
+        printf("in_size: %ld, out_size: %ld\n", in_size, out_size);
 
+        uint8_t* in_buf = (uint8_t*)malloc(in_size);
+        size_t base = mip.offset + section.offset + th.texs * th.mips * 8;
+        printf("%lx\n", base);
+        file.seekg(base);
+        file.read((char*)in_buf, section.compressed_size);
+
+        uint8_t* out_buf = (uint8_t*)malloc(out_size + 16);
+        if(!GDeflate::Decompress(out_buf, out_size, in_buf, in_size, 1)) {
+            printf("Failed\n");
+        }else {
+            printf("Decompressed!\n");
+            std::string full_path = std::string(file_name);
+            auto pos = full_path.find("natives");
+            auto path = "./outputs/" + full_path.substr(pos, full_path.length());
+            path = path.substr(0, path.find_last_of('/'));
+            printf("%s\n", path.c_str());
+            std::filesystem::create_directories(path);
+            auto name = full_path.substr(full_path.find_last_of("/"), full_path.length());
+            std::string out_name = path + name;
+
+            printf("%s\n", out_name.c_str());
+
+            std::ofstream out_file(out_name, std::ios::out | std::ios::binary);
+            th.write(out_file);
+            out_buf[out_size] = 0xa;
+            out_file.write((char*)out_buf, out_size);
+            out_file.close();
+            printf("Wrote to file %s\n", out_name.c_str());
+            //writePNG("image.png", out_buf, th.width, th.height);
+        }
+
+        free(out_buf);
+        free(in_buf);
+    }
+
+    file.close();
 }
 
 bool writePNG(const char* filename, uint8_t* buffer, int width, int height) {
@@ -70,16 +119,16 @@ bool writePNG(const char* filename, uint8_t* buffer, int width, int height) {
 
     // Write header
     png_set_IHDR(
-        png,
-        info,
-        width,
-        height,
-        8, // Bit depth
-        PNG_COLOR_TYPE_GRAY, // Color type: grayscale
-        PNG_INTERLACE_NONE,
-        PNG_COMPRESSION_TYPE_DEFAULT,
-        PNG_FILTER_TYPE_DEFAULT
-    );
+            png,
+            info,
+            width,
+            height,
+            8, // Bit depth
+            PNG_COLOR_TYPE_GRAY, // Color type: grayscale
+            PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_DEFAULT,
+            PNG_FILTER_TYPE_DEFAULT
+            );
     png_write_info(png, info);
 
     // Write image data
@@ -101,7 +150,7 @@ bool writePNG(const char* filename, uint8_t* buffer, int width, int height) {
 }
 
 int main(int argc, char* argv[]) {
-       
+
     if (argc < 2) {
         printf("provide a file\n");
         //return 0;

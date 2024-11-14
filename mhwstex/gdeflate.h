@@ -182,11 +182,9 @@ struct GDeflateHeader {
     uint8_t tile_size; // 2 bits
     uint32_t last_tile_size; // 18 bits
     uint16_t reserved; // 12 bits
-    void print();
 };
 
 struct GDeflateData {
-    GDeflateHeader header;
     std::vector<GDefSection> sections;
     uint8_t* data;
 

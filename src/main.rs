@@ -2,13 +2,18 @@ pub mod bc7;
 
 extern crate image;
 
-use core::str;
-use std::path::Path;
-use std::{fmt, fs::{self}, io::Result, u16};
-use bc7::{bc7_decompress_block, BitField, TexCodec};
+use bc7::{bc7_decompress_block, Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec};
 use byteorder::{self, LittleEndian, ReadBytesExt};
 use clap::Parser;
+use core::str;
 use image::RgbaImage;
+use std::path::Path;
+use std::{
+    fmt,
+    fs::{self},
+    io::Result,
+    u16,
+};
 
 #[derive(Debug)]
 struct Tex {
@@ -29,16 +34,13 @@ enum SizeType {
     U8(usize),
     U16(usize),
     U32(usize),
-    U64(usize)
+    U64(usize),
 }
 
 impl BytesFile {
     fn new(file_name: String) -> Result<BytesFile> {
         let data = fs::read(file_name)?;
-        Ok(BytesFile {
-            data,
-            index: 0
-        })
+        Ok(BytesFile { data, index: 0 })
     }
 
     pub fn read<T: ReadBytesTyped>(&mut self) -> Result<T> {
@@ -48,7 +50,7 @@ impl BytesFile {
     pub fn readn<T: ReadBytesTyped, const N: usize>(&mut self) -> Result<[T; N]> {
         T::readn::<N>(self)
     }
-    
+
     pub fn read_bytes_to_vec(&mut self, num: usize) -> Result<Vec<u8>> {
         let mut data = vec![0; num];
         for i in 0..num {
@@ -58,14 +60,22 @@ impl BytesFile {
         Ok(data)
     }
 
-    pub fn readnvec(&mut self, sizes: Vec<SizeType>) -> Result<Vec<u64>>{
+    pub fn readnvec(&mut self, sizes: Vec<SizeType>) -> Result<Vec<u64>> {
         let mut res = Vec::new();
         for size_type in sizes {
             match size_type {
-                SizeType::U8(n) => readnvec::<u8>(self, n)?.iter().for_each(|x| res.push(*x as u64)),
-                SizeType::U16(n) => readnvec::<u16>(self, n)?.iter().for_each(|x| res.push(*x as u64)),
-                SizeType::U32(n) => readnvec::<u32>(self, n)?.iter().for_each(|x| res.push(*x as u64)),
-                SizeType::U64(n) => readnvec::<u64>(self, n)?.iter().for_each(|x| res.push(*x as u64))
+                SizeType::U8(n) => readnvec::<u8>(self, n)?
+                    .iter()
+                    .for_each(|x| res.push(*x as u64)),
+                SizeType::U16(n) => readnvec::<u16>(self, n)?
+                    .iter()
+                    .for_each(|x| res.push(*x as u64)),
+                SizeType::U32(n) => readnvec::<u32>(self, n)?
+                    .iter()
+                    .for_each(|x| res.push(*x as u64)),
+                SizeType::U64(n) => readnvec::<u64>(self, n)?
+                    .iter()
+                    .for_each(|x| res.push(*x as u64)),
             };
         }
         Ok(res)
@@ -91,12 +101,12 @@ trait ReadBytesTyped: Sized {
 
 impl ReadBytesTyped for u64 {
     fn read(file: &mut BytesFile) -> Result<u64> {
-        let mut data = &file.data[file.index..file.index+8];
+        let mut data = &file.data[file.index..file.index + 8];
         let res = data.read_u64::<LittleEndian>()?;
         file.seek(file.index + 8);
         Ok(res)
     }
-    
+
     fn readn<const N: usize>(file: &mut BytesFile) -> Result<[u64; N]> {
         let mut data = [0u64; N];
         for i in 0..N {
@@ -108,11 +118,11 @@ impl ReadBytesTyped for u64 {
 
 impl ReadBytesTyped for u32 {
     fn read(file: &mut BytesFile) -> Result<u32> {
-        let res = (&file.data[file.index..file.index+4]).read_u32::<LittleEndian>()?;
+        let res = (&file.data[file.index..file.index + 4]).read_u32::<LittleEndian>()?;
         file.seek(file.index + 4);
         Ok(res)
     }
-    
+
     fn readn<const N: usize>(file: &mut BytesFile) -> Result<[u32; N]> {
         let mut data = [0u32; N];
         for i in 0..N {
@@ -124,7 +134,7 @@ impl ReadBytesTyped for u32 {
 
 impl ReadBytesTyped for u16 {
     fn read(file: &mut BytesFile) -> Result<u16> {
-        let res = (&file.data[file.index..file.index+2]).read_u16::<LittleEndian>()?;
+        let res = (&file.data[file.index..file.index + 2]).read_u16::<LittleEndian>()?;
         file.seek(file.index + 2);
         Ok(res)
     }
@@ -154,23 +164,20 @@ impl ReadBytesTyped for u8 {
     }
 }
 
-
 //      32-MAGIC, 32-VERSION, 16-w, 16-h, 16-depth, 24-texcount, 8
-
-
 
 impl Tex {
     fn new(file_name: String) -> Result<Tex> {
         let mut data = BytesFile::new(file_name)?;
-        
+
         let magic = data.readn::<u8, 4>()?;
         let name = str::from_utf8(&magic);
         let version = data.read::<u32>()?;
         println!("name: {:?}", name.clone());
         println!("version: {:?}", version);
 
-        let width = data.read::<u16>()?;
-        let height = data.read::<u16>()?;
+        let mut width = data.read::<u16>()?;
+        let mut height = data.read::<u16>()?;
         let depth = data.read::<u16>()?;
         println!("dims: {width}, {height}, {depth}");
 
@@ -190,7 +197,7 @@ impl Tex {
         println!("super_dims: {super_dims:#06x}");
         let _x = data.readnvec(vec![SizeType::U16(3)])?;
         println!("x0: {_x:?}");
-        
+
         #[derive(Clone)]
         struct TexInfo {
             offset: usize,
@@ -200,9 +207,11 @@ impl Tex {
 
         impl fmt::Display for TexInfo {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f,
-                       "\tOffset: {:#010x}, pitch: {:#010x}, Len: {:#010x}",
-                       self.offset, self.pitch, self.len)
+                write!(
+                    f,
+                    "\tOffset: {:#010x}, pitch: {:#010x}, Len: {:#010x}",
+                    self.offset, self.pitch, self.len
+                )
             }
         }
 
@@ -221,68 +230,31 @@ impl Tex {
                 let len = data.read::<u32>()? as usize;
                 //data.index += 2;
 
-                tex_infos.push(TexInfo {
-                    offset,
-                    pitch,
-                    len,
-                });
+                tex_infos.push(TexInfo { offset, pitch, len });
                 println!("{}", tex_infos[_j as usize]);
             }
         }
 
-        let big_val = if version == 240701001 {
-            data.read::<u64>()? as usize
-        } else {
-            1
-        };
-
-        // scale = 0x100
-        // len = 0x100
-        // pitch = 0x100
-        // p/s = 1
-        // l/s = 1
-        println!("{big_val:#010x}");
-        let textures = tex_infos.clone()
+        let textures = tex_infos
+            .clone()
             .into_iter()
             .enumerate()
-            .map(|(index, tex_info)|{
-                println!("{index}");
+            .map(|(index, tex_info)| {
                 let mut buf: Vec<u8> = Vec::new();
-                match version {
-                    240701001 => {
-                        data.seek(tex_info.offset & 0xffff);
-                    },
-                    28 => data.seek(tex_info.offset),
-                    _ => panic!("Invalid version number"),
+                if index != 0 {
+                    return buf
                 }
-                for j in 0..tex_info.len/tex_info.pitch {
-                    data.index = (tex_info.offset & 0xffff) + j * 8;
-                    for i in 0..tex_info.len/tex_info.pitch {
-                        //println!("{:#010x}, {:#010x}",tex_info.len/tex_info.pitch * j + i, data.index);
-                        if data.index + 8 >= data.data.len() {
-                            break
-                        }
-                        buf.extend(data.read_bytes_to_vec(8).unwrap());
-                        data.index += tex_info.pitch - 8;
-                    }
-                }
+                data.seek(tex_info.offset);
+                buf.extend(data.read_bytes_to_vec(tex_info.len).unwrap());
                 buf
-            }).collect::<Vec<_>>();
-        for t in &textures {
-            print!("[");
-            for byte in t {
-                //print!("{byte:#04x}, ");
-            }
-            println!("]");
-        }
-        //println!("{:?}", textures);
-
+            })
+            .collect::<Vec<_>>();
         let tex = Tex {
-            width: width as u32,
-            height: height as u32,
+            width: tex_infos[0].pitch as u32 * 4,
+            height: tex_infos[0].pitch as u32 * height as u32 / width as u32 * 4,
             format,
             layout,
-            textures
+            textures,
         };
         Ok(tex)
     }
@@ -317,7 +289,7 @@ impl Tex {
                         let x = x as f32 / 255.0 * 2.0 - 1.0;
                         x * x
                     })
-                .sum();
+                    .sum();
                 if l > 1.0 {
                     l = 1.0
                 }
@@ -326,14 +298,20 @@ impl Tex {
             }
         };
         match self.format {
-            /*0x1C | 0x1D => R8G8B8A8Unorm::decode_image,
-              0x31 => R8G8Unorm::decode_image,
-              0x3D => R8Unorm::decode_image,*/
-            0x47 | 0x48 => bc7::Bc1Unorm::decode_image(&texture, self.width as usize, self.height as usize, self.layout, writer),
-            //0x4D | 0x4E => Bc3Unorm::decode_image,
-            /*0x50 => Bc4Unorm::decode_image,
-              0x53 => Bc5Unorm::decode_image,*/
-            0x62 | 0x63 => bc7::Bc7Unorm::decode_image(&texture, 256, 256, self.layout, writer),
+            0x1C | 0x1D => R8G8B8A8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x31 => R8G8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x3D => R8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x47 | 0x48 => bc7::Bc1Unorm::decode_image(
+                &texture,
+                self.width as usize,
+                self.height as usize,
+                self.layout,
+                writer,
+            ),
+            0x4D | 0x4E => Bc3Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x50 => Bc4Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x53 => Bc5Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x62 | 0x63 => bc7::Bc7Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
             /*0x402 | 0x403 => Astc::<4, 4>::decode_image,
             0x405 | 0x406 => Astc::<5, 4>::decode_image,
             0x408 | 0x409 => Astc::<5, 5>::decode_image,
@@ -353,7 +331,7 @@ impl Tex {
         Ok(RGBAImage {
             data,
             width: self.width,
-            height: self.height
+            height: self.height,
         })
     }
 }
@@ -373,10 +351,18 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let tex = Tex::new(args.file_name)?;
+    let tex = Tex::new(args.file_name.clone())?;
     //println!("{tex:?}");
     let rgba = tex.to_rgba(0)?;
     println!("{}", rgba.data.len());
-    let _ = image::save_buffer(&Path::new("image.png"), &rgba.data, rgba.width, rgba.height, image::ExtendedColorType::Rgba8);
+    let name = format!("{}.png", args.file_name);
+    println!("saving to {name}");
+    let _ = image::save_buffer(
+        &Path::new(&name),
+        &rgba.data,
+        rgba.width,
+        rgba.height,
+        image::ExtendedColorType::Rgba8,
+    );
     Ok(())
 }
