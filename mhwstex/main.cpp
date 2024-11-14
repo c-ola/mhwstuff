@@ -30,55 +30,65 @@ void decompress_texture(const char* file_name) {
     //texture.gdeflate_data.header.print();
     
     auto sections = std::vector<GDefSection>(th.mips*th.texs);
-    GDefSection section = {};
-    for (int i = 0; i < th.mips; i++) {
-        file.read((char*)&section, sizeof(GDefSection));
-        printf("GDeflate: %d, %d\n", section.compressed_size, section.offset);
-        sections[i] = section;
+    size_t total_size = 0;
+    for (int i = 0; i < th.texs * th.mips; i++) {
+        file.read((char*)&sections[i], sizeof(GDefSection));
+        total_size += th.mip_headers[0][i].size;
     }
-    for (int i = 0; i < 1; i++) {
-        auto section = sections[0];
-        auto mip = th.mip_headers[0][i];
+
+    uint8_t* out_buf = (uint8_t*)malloc(total_size + 32);
+    uint8_t* out_buf_ptr = out_buf;
+    size_t buf_offset = 0;
+
+    size_t base = th.mip_headers[0][0].offset + th.texs * th.mips * 8;
+    file.seekg(base);
+    //for (int i = 0; i < th.texs; i++) {
+    for (int j = 0; j < th.mips; j++) {
+        auto mip = th.mip_headers[0][j];
+        auto section = sections[j];
         size_t out_size = mip.size;
         size_t in_size = section.compressed_size;
-        printf("GDeflate: %d, %d\n", section.compressed_size, section.offset);
 
+        printf("GDeflate: %d, %d\n", section.compressed_size, section.offset);
         printf("in_size: %ld, out_size: %ld\n", in_size, out_size);
 
         uint8_t* in_buf = (uint8_t*)malloc(in_size);
-        size_t base = mip.offset + section.offset + th.texs * th.mips * 8;
-        printf("%lx\n", base);
-        file.seekg(base);
-        file.read((char*)in_buf, section.compressed_size);
-
-        uint8_t* out_buf = (uint8_t*)malloc(out_size + 16);
-        if(!GDeflate::Decompress(out_buf, out_size, in_buf, in_size, 1)) {
+        file.read((char*)in_buf, in_size);
+        
+        assert(in_buf != nullptr);
+        assert(out_buf != nullptr);
+        printf("%p, %p\n", out_buf, out_buf_ptr);
+        if(!GDeflate::Decompress(out_buf_ptr, out_size, in_buf, in_size, 1)) {
             printf("Failed\n");
-        }else {
-            printf("Decompressed!\n");
-            std::string full_path = std::string(file_name);
-            auto pos = full_path.find("natives");
-            auto path = "./outputs/" + full_path.substr(pos, full_path.length());
-            path = path.substr(0, path.find_last_of('/'));
-            printf("%s\n", path.c_str());
-            std::filesystem::create_directories(path);
-            auto name = full_path.substr(full_path.find_last_of("/"), full_path.length());
-            std::string out_name = path + name;
-
-            printf("%s\n", out_name.c_str());
-
-            std::ofstream out_file(out_name, std::ios::out | std::ios::binary);
-            th.write(out_file);
-            out_buf[out_size] = 0xa;
-            out_file.write((char*)out_buf, out_size);
-            out_file.close();
-            printf("Wrote to file %s\n", out_name.c_str());
-            //writePNG("image.png", out_buf, th.width, th.height);
+            free(in_buf);
+            return;
         }
+        out_buf_ptr += out_size;
 
-        free(out_buf);
         free(in_buf);
     }
+
+    printf("Decompressed!\n");
+    std::string full_path = std::string(file_name);
+    auto pos = full_path.find("natives");
+    auto path = "./outputs/" + full_path.substr(pos, full_path.length());
+    path = path.substr(0, path.find_last_of('/'));
+    printf("%s\n", path.c_str());
+    std::filesystem::create_directories(path);
+    auto name = full_path.substr(full_path.find_last_of("/"), full_path.length());
+    std::string out_name = path + name;
+
+    printf("%s\n", out_name.c_str());
+
+    std::ofstream out_file(out_name, std::ios::out | std::ios::binary);
+    th.write(out_file);
+    out_buf[total_size + 31] = 0xa;
+    out_file.write((char*)out_buf, total_size + 32);
+    printf("Wrote %ld bytes\n", total_size + 32);
+    out_file.close();
+    printf("Wrote to file %s\n", out_name.c_str());
+    //writePNG("image.png", out_buf, th.width, th.height);
+    free(out_buf);
 
     file.close();
 }

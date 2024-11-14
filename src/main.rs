@@ -2,7 +2,10 @@ pub mod bc7;
 
 extern crate image;
 
-use bc7::{bc7_decompress_block, Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec};
+use bc7::{
+    bc7_decompress_block, Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm,
+    R8Unorm, TexCodec,
+};
 use byteorder::{self, LittleEndian, ReadBytesExt};
 use clap::Parser;
 use core::str;
@@ -14,15 +17,6 @@ use std::{
     io::Result,
     u16,
 };
-
-#[derive(Debug)]
-struct Tex {
-    width: u32,
-    height: u32,
-    format: u32,
-    layout: u32,
-    textures: Vec<Vec<u8>>,
-}
 
 #[derive(Debug)]
 struct BytesFile {
@@ -164,7 +158,22 @@ impl ReadBytesTyped for u8 {
     }
 }
 
-//      32-MAGIC, 32-VERSION, 16-w, 16-h, 16-depth, 24-texcount, 8
+#[derive(Debug, Clone)]
+struct Tex {
+    width: u32,
+    height: u32,
+    format: u32,
+    layout: u32,
+    tex_infos: Vec<TexInfo>,
+    textures: Vec<Vec<u8>>,
+}
+
+#[derive(Debug, Clone)]
+struct TexInfo {
+    offset: usize,
+    pitch: usize,
+    len: usize,
+}
 
 impl Tex {
     fn new(file_name: String) -> Result<Tex> {
@@ -176,8 +185,8 @@ impl Tex {
         println!("name: {:?}", name.clone());
         println!("version: {:?}", version);
 
-        let mut width = data.read::<u16>()?;
-        let mut height = data.read::<u16>()?;
+        let width = data.read::<u16>()?;
+        let height = data.read::<u16>()?;
         let depth = data.read::<u16>()?;
         println!("dims: {width}, {height}, {depth}");
 
@@ -198,13 +207,6 @@ impl Tex {
         let _x = data.readnvec(vec![SizeType::U16(3)])?;
         println!("x0: {_x:?}");
 
-        #[derive(Clone)]
-        struct TexInfo {
-            offset: usize,
-            pitch: usize,
-            len: usize,
-        }
-
         impl fmt::Display for TexInfo {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(
@@ -215,20 +217,14 @@ impl Tex {
             }
         }
 
-        //0x24320 - 0x223a0
         let mut tex_infos = Vec::new();
 
         for i in 0..tex_count {
             for _j in 0..mipmap_count {
                 println!("texture_{i}-{_j}");
                 let offset = data.read::<u64>()? as usize;
-                //let val = data.read::<u16>()? as usize;
-                //println!("{val}");
-                //data.index += 4;
                 let pitch = data.read::<u32>()? as usize;
-                //data.index += 2;
                 let len = data.read::<u32>()? as usize;
-                //data.index += 2;
 
                 tex_infos.push(TexInfo { offset, pitch, len });
                 println!("{}", tex_infos[_j as usize]);
@@ -238,36 +234,36 @@ impl Tex {
         let textures = tex_infos
             .clone()
             .into_iter()
-            .enumerate()
-            .map(|(index, tex_info)| {
-                let mut buf: Vec<u8> = Vec::new();
-                if index != 0 {
-                    return buf
-                }
+            .map(|tex_info| {
+                println!("{tex_info:?}");
                 data.seek(tex_info.offset);
-                buf.extend(data.read_bytes_to_vec(tex_info.len).unwrap());
-                buf
+                data.read_bytes_to_vec(tex_info.len).unwrap()
             })
             .collect::<Vec<_>>();
         let tex = Tex {
-            width: tex_infos[0].pitch as u32 * 4,
-            height: tex_infos[0].pitch as u32 * height as u32 / width as u32 * 4,
+            width: width as u32,
+            height: height as u32,
             format,
             layout,
-            textures,
+            tex_infos,
+            textures: textures.clone(),
         };
         Ok(tex)
     }
 
-    pub fn to_rgba(self, index: usize) -> Result<RGBAImage> {
+    pub fn to_rgba(&self, index: usize) -> Result<RGBAImage> {
         let texture: Vec<u8> = self.textures[index].clone();
+        let tex_info = self.tex_infos[index].clone();
         let swizzle = "rgba";
-        let width = self.width as usize;
-        let height = self.height as usize;
-        let mut data = vec![0; width * height * 4];
+        //let width = self.width as usize ;
+        //let height = self.height as usize;
+        let width = self.width + tex_info.pitch as u32 % self.width as u32 / 4;
+        let height = width * self.height as u32 / self.width as u32;
+        let mut data = vec![0; width as usize * height as usize * 4];
 
+        println!("w{width}, h{height}");
         let writer = |x: usize, y: usize, v: [u8; 4]| {
-            let i = (x + y * (width)) * 4;
+            let i = (x + y * (width as usize)) * 4;
             let dest = &mut data[i..][..4];
             for (dest, &code) in dest.iter_mut().zip(swizzle.as_bytes()) {
                 *dest = match code {
@@ -298,20 +294,62 @@ impl Tex {
             }
         };
         match self.format {
-            0x1C | 0x1D => R8G8B8A8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x31 => R8G8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x3D => R8Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x47 | 0x48 => bc7::Bc1Unorm::decode_image(
+            0x1C | 0x1D => R8G8B8A8Unorm::decode_image(
                 &texture,
-                self.width as usize,
-                self.height as usize,
+                width as usize,
+                height as usize,
                 self.layout,
                 writer,
             ),
-            0x4D | 0x4E => Bc3Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x50 => Bc4Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x53 => Bc5Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
-            0x62 | 0x63 => bc7::Bc7Unorm::decode_image(&texture, self.width as usize, self.width as usize, self.layout, writer),
+            0x31 => R8G8Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x3D => R8Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x47 | 0x48 => bc7::Bc1Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x4D | 0x4E => Bc3Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x50 => Bc4Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x53 => Bc5Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
+            0x62 | 0x63 => bc7::Bc7Unorm::decode_image(
+                &texture,
+                width as usize,
+                height as usize,
+                self.layout,
+                writer,
+            ),
             /*0x402 | 0x403 => Astc::<4, 4>::decode_image,
             0x405 | 0x406 => Astc::<5, 4>::decode_image,
             0x408 | 0x409 => Astc::<5, 5>::decode_image,
@@ -330,8 +368,8 @@ impl Tex {
         };
         Ok(RGBAImage {
             data,
-            width: self.width,
-            height: self.height,
+            width: width,
+            height: height,
         })
     }
 }
@@ -353,16 +391,19 @@ fn main() -> Result<()> {
     let args = Args::parse();
     let tex = Tex::new(args.file_name.clone())?;
     //println!("{tex:?}");
-    let rgba = tex.to_rgba(0)?;
-    println!("{}", rgba.data.len());
-    let name = format!("{}.png", args.file_name);
-    println!("saving to {name}");
-    let _ = image::save_buffer(
-        &Path::new(&name),
-        &rgba.data,
-        rgba.width,
-        rgba.height,
-        image::ExtendedColorType::Rgba8,
-    );
+    //for i in 0..tex.tex_infos.len() {
+        let rgba = tex.to_rgba(0)?;
+        println!("{}", rgba.data.len());
+        let name = format!("{}_{}.png", args.file_name, 0);
+        println!("saving to {name}");
+        let _ = image::save_buffer(
+            &Path::new(&name),
+            &rgba.data,
+            rgba.width,
+            rgba.height,
+            image::ExtendedColorType::Rgba8,
+        );
+
+    //}
     Ok(())
 }
