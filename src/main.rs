@@ -3,8 +3,7 @@ pub mod bc7;
 extern crate image;
 
 use bc7::{
-    Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm,
-    R8Unorm, TexCodec,
+    Bc1Unorm, Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec
 };
 use byteorder::{self, LittleEndian, ReadBytesExt};
 use clap::Parser;
@@ -298,7 +297,7 @@ impl Tex {
                 self.layout,
                 writer,
             ),
-            0x47 | 0x48 => bc7::Bc1Unorm::decode_image(
+            0x47 | 0x48 => Bc1Unorm::decode_image(
                 &texture,
                 width as usize,
                 height as usize,
