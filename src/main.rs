@@ -3,12 +3,13 @@ pub mod bc7;
 extern crate image;
 
 use bc7::{
-    bc7_decompress_block, Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm,
+    Bc3Unorm, Bc4Unorm, Bc5Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm,
     R8Unorm, TexCodec,
 };
 use byteorder::{self, LittleEndian, ReadBytesExt};
 use clap::Parser;
 use core::str;
+use std::time::SystemTime;
 use image::RgbaImage;
 use std::path::Path;
 use std::{
@@ -22,13 +23,6 @@ use std::{
 struct BytesFile {
     data: Vec<u8>,
     pub index: usize,
-}
-
-enum SizeType {
-    U8(usize),
-    U16(usize),
-    U32(usize),
-    U64(usize),
 }
 
 impl BytesFile {
@@ -54,38 +48,9 @@ impl BytesFile {
         Ok(data)
     }
 
-    pub fn readnvec(&mut self, sizes: Vec<SizeType>) -> Result<Vec<u64>> {
-        let mut res = Vec::new();
-        for size_type in sizes {
-            match size_type {
-                SizeType::U8(n) => readnvec::<u8>(self, n)?
-                    .iter()
-                    .for_each(|x| res.push(*x as u64)),
-                SizeType::U16(n) => readnvec::<u16>(self, n)?
-                    .iter()
-                    .for_each(|x| res.push(*x as u64)),
-                SizeType::U32(n) => readnvec::<u32>(self, n)?
-                    .iter()
-                    .for_each(|x| res.push(*x as u64)),
-                SizeType::U64(n) => readnvec::<u64>(self, n)?
-                    .iter()
-                    .for_each(|x| res.push(*x as u64)),
-            };
-        }
-        Ok(res)
-    }
-
     pub fn seek(&mut self, num: usize) {
         self.index = num;
     }
-}
-
-fn readnvec<T: ReadBytesTyped>(file: &mut BytesFile, num: usize) -> Result<Vec<T>> {
-    let mut data = Vec::new();
-    for _ in 0..num {
-        data.push(file.read::<T>()?);
-    }
-    Ok(data)
 }
 
 trait ReadBytesTyped: Sized {
@@ -180,6 +145,12 @@ impl Tex {
         let mut data = BytesFile::new(file_name)?;
 
         let magic = data.readn::<u8, 4>()?;
+        let m = ['T', 'E', 'X', '\0'];
+        for i in 0..4 {
+            if magic[i] != m[i] as u8 {
+                panic!("Invalid Magic");
+            }
+        }
         let name = str::from_utf8(&magic);
         let version = data.read::<u32>()?;
         println!("name: {:?}", name.clone());
@@ -204,7 +175,7 @@ impl Tex {
 
         let super_dims = data.read::<u16>()?;
         println!("super_dims: {super_dims:#06x}");
-        let _x = data.readnvec(vec![SizeType::U16(3)])?;
+        let _x = data.read_bytes_to_vec(6);
         println!("x0: {_x:?}");
 
         impl fmt::Display for TexInfo {
@@ -237,7 +208,13 @@ impl Tex {
             .map(|tex_info| {
                 println!("{tex_info:?}");
                 data.seek(tex_info.offset);
-                data.read_bytes_to_vec(tex_info.len).unwrap()
+                let mut buf: Vec<u8> = Vec::new();
+                let _rows = tex_info.len/tex_info.pitch;
+                //for _ in 0..rows {
+                buf.extend(data.read_bytes_to_vec(tex_info.len).unwrap());
+                    //buf.extend(vec![0; tex_info.pitch])
+                //}
+                buf
             })
             .collect::<Vec<_>>();
         let tex = Tex {
@@ -255,13 +232,19 @@ impl Tex {
         let texture: Vec<u8> = self.textures[index].clone();
         let tex_info = self.tex_infos[index].clone();
         let swizzle = "rgba";
-        //let width = self.width as usize ;
-        //let height = self.height as usize;
-        let width = self.width + tex_info.pitch as u32 % self.width as u32 / 4;
-        let height = width * self.height as u32 / self.width as u32;
+        
+        let s_pitch = tex_info.pitch as usize / 4;
+        let padding = ((self.width as usize / s_pitch + 1) * s_pitch) % self.width as usize;
+
+        let (width, height) = if padding != 0 && self.width / padding as u32 != 2 { 
+            (self.width as usize + padding, self.height as usize * (self.width as usize + padding) / self.width as usize)
+        } else {
+            //(self.width as usize + padding, self.height as usize * (self.width as usize + padding) / self.width as usize)
+            (self.width as usize, self.height as usize)
+        };
         let mut data = vec![0; width as usize * height as usize * 4];
 
-        println!("w{width}, h{height}");
+        println!("w{}, h{}, pad:{padding}", width, height);
         let writer = |x: usize, y: usize, v: [u8; 4]| {
             let i = (x + y * (width as usize)) * 4;
             let dest = &mut data[i..][..4];
@@ -350,26 +333,21 @@ impl Tex {
                 self.layout,
                 writer,
             ),
-            /*0x402 | 0x403 => Astc::<4, 4>::decode_image,
-            0x405 | 0x406 => Astc::<5, 4>::decode_image,
-            0x408 | 0x409 => Astc::<5, 5>::decode_image,
-            0x40B | 0x40C => Astc::<6, 5>::decode_image,
-            0x40E | 0x40F => Astc::<6, 6>::decode_image,
-            0x411 | 0x412 => Astc::<8, 5>::decode_image,
-            0x414 | 0x415 => Astc::<8, 6>::decode_image,
-            0x417 | 0x418 => Astc::<8, 8>::decode_image,
-            0x41A | 0x41B => Astc::<10, 5>::decode_image,
-            0x41D | 0x41E => Astc::<10, 6>::decode_image,
-            0x420 | 0x421 => Astc::<10, 8>::decode_image,
-            0x423 | 0x424 => Astc::<10, 10>::decode_image,
-            0x426 | 0x427 => Astc::<12, 10>::decode_image,
-            0x429 | 0x42A => Astc::<12, 12>::decode_image*/
             x => panic!("unsupported format {:08X}", x),
         };
+
+        // remove padding around the image
+        let mut data2 = vec![0; self.width as usize * self.height as usize * 4]; 
+        for i in 0..self.height as usize {
+            for j in 0..self.width as usize * 4 {
+                data2[i * self.width as usize * 4 + j] = data[i * width * 4 + j];
+            }
+        }
+
         Ok(RGBAImage {
-            data,
-            width: width,
-            height: height,
+            data: data2,
+            width: self.width as u32,
+            height: self.height as u32,
         })
     }
 }
@@ -388,22 +366,24 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    let now = SystemTime::now();
     let args = Args::parse();
     let tex = Tex::new(args.file_name.clone())?;
     //println!("{tex:?}");
     //for i in 0..tex.tex_infos.len() {
-        let rgba = tex.to_rgba(0)?;
-        println!("{}", rgba.data.len());
-        let name = format!("{}_{}.png", args.file_name, 0);
-        println!("saving to {name}");
-        let _ = image::save_buffer(
-            &Path::new(&name),
-            &rgba.data,
-            rgba.width,
-            rgba.height,
-            image::ExtendedColorType::Rgba8,
-        );
+    let rgba = tex.to_rgba(0)?;
+    println!("{}", rgba.data.len());
+    let name = format!("{}_{}.png", args.file_name, 0);
+    println!("saving to {name}");
+    let _ = image::save_buffer(
+        &Path::new(&name),
+        &rgba.data,
+        rgba.width,
+        rgba.height,
+        image::ExtendedColorType::Rgba8,
+    );
 
     //}
+    println!("Time taken: {} ms", now.elapsed().unwrap().as_millis());
     Ok(())
 }
