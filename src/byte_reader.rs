@@ -1,5 +1,5 @@
 use byteorder::{self, LittleEndian, ReadBytesExt};
-use std::{fs::{self}, io::Result, string::FromUtf16Error};
+use std::{fs::{self}, io::Result};
 
 #[derive(Debug)]
 pub struct BytesFile {

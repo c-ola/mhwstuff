@@ -1,5 +1,6 @@
 use nalgebra_glm::*;
 use serde::*;
+use uuid::Uuid;
 use super::*;
 
 #[macro_export]
@@ -585,7 +586,8 @@ impl FieldFromRsz for Guid {
 impl From<Guid> for String {
     fn from(guid: Guid) -> String {
         format!(
-            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            "{}", Uuid::from_bytes_le(guid.bytes)
+            /*"{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
             guid.bytes[3],
             guid.bytes[2],
             guid.bytes[1],
@@ -601,7 +603,7 @@ impl From<Guid> for String {
             guid.bytes[12],
             guid.bytes[13],
             guid.bytes[14],
-            guid.bytes[15],
+            guid.bytes[15],*/
         )
     }
 }

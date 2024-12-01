@@ -19,7 +19,7 @@ struct Entry {
 
 impl Entry {
     pub fn print(&self) {
-        println!("GUID: {:?}", uuid::Uuid::from_bytes(self.guid));
+        println!("GUID: {:?}", uuid::Uuid::from_bytes_le(self.guid));
         println!("Name: {}", self.name);
         for c in self.content.iter() {
             println!("\t {:?}", c);
@@ -32,7 +32,7 @@ impl Serialize for Entry {
         where
             S: serde::Serializer {
         let mut state = serializer.serialize_struct("Entry", 4)?;
-        let uuid = Uuid::from_bytes(self.guid).to_string();
+        let uuid = Uuid::from_bytes_le(self.guid).to_string();
         state.serialize_field("guid", &uuid)?;
         state.serialize_field("name", &self.name)?;
         state.serialize_field("hash", &self.hash)?;

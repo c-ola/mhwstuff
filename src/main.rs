@@ -18,13 +18,10 @@ use clap::Parser;
 use msg::Msg;
 use tex::Tex;
 use user::User;
-use std::fs::{self, File};
+use std::fs::{File};
 use std::time::SystemTime;
-use image::RgbaImage;
 use std::path::Path;
-use std::io::{Cursor, Read};
 use anyhow::*;
-use rsz::*;
 
 
 #[derive(Parser, Debug)]
@@ -39,13 +36,10 @@ fn main() -> Result<()> {
     let args = Args::parse();
     println!("{:?}", args);
     if args.file_name.ends_with("msg.23") {
-        let msg = Msg::new(args.file_name.clone())?;
+        let msg = Msg::new(args.file_name)?;
         msg.save();
     } else if args.file_name.ends_with("user.3") {
-        //let mut data = vec![];
-        //let mut file = File::open(args.file_name.clone())?;
-        //file.read_to_end(&mut data);
-        let nodes = User::new(File::open(args.file_name.clone())?)?.rsz
+        let nodes = User::new(File::open(&args.file_name)?)?.rsz
             .deserialize(Some(0)).unwrap();
         for node in nodes {
             println!("{}", node.to_json().unwrap());

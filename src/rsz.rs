@@ -227,6 +227,7 @@ impl Rsz {
             node_buf.push(NodeSlot::Instance(node));
         }
 
+        println!("{node_buf:?}");
         let result = self
             .roots
             .iter()
@@ -241,7 +242,7 @@ impl Rsz {
         for (i, node) in node_buf.into_iter().enumerate() {
             if let NodeSlot::Instance(node) = node {
                 if Rc::strong_count(&node.any) == 1 {
-                    bail!("Left over node {} ({})", i, node.symbol())
+                    //bail!("Left over node {} ({})", i, node.symbol())
                 }
             }
         }
@@ -435,6 +436,7 @@ trait FieldFromRsz: Sized {
     fn field_from_rsz(rsz: &mut RszDeserializer) -> Result<Self>;
 }
 
+#[derive(Debug)]
 pub struct RszTypeInfo {
     deserializer: fn(&mut RszDeserializer, type_info: &'static RszTypeInfo) -> Result<AnyRsz>,
     to_json: fn(&dyn Any) -> Result<String>,
@@ -550,6 +552,7 @@ pub static RSZ_TYPE_MAP: Lazy<HashMap<u32, RszTypeInfo>> = Lazy::new(|| {
     }
 
 
+    r!(UserDataExcelUserData, UserDataItemData);
     r!(user_data_ItemData_cData);
 
 

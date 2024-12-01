@@ -1,218 +1,13 @@
 use super::*;
 use crate::rsz_enum;
-use crate::rsz_newtype;
 use crate::rsz_struct;
 use serde::*;
-/*
-// snow.data.GameItemEnum.CarriableFilter
-rsz_enum! {
-#[rsz(i32)]
-#[derive(Debug, Serialize)]
-pub enum CarriableFilter {
-All = 0,
-Quest = 1,
-Hyakuryu = 2,
-Lobby = 3,
-}
-}
-
-// snow.data.DataDef.ItemTypes
-rsz_enum! {
-#[rsz(i32)]
-#[derive(Debug, Serialize, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub enum ItemTypes {
-Consume = 0,
-Tool = 1,
-Material = 2,
-OffcutsMaterial = 3,
-Bullet = 4,
-Bottle = 5,
-Present = 6,
-PayOff = 7,
-CarryPayOff = 8,
-Carry = 9,
-Judge = 10,
-Antique = 11,
-}
-}
-
-// snow.data.GameItemEnum.IconRank
-rsz_enum! {
-#[rsz(i32)]
-#[derive(Debug, Serialize)]
-pub enum IconRank {
-None = 0,
-Great = 1,
-Lv1 = 2,
-Lv2 = 3,
-Lv3 = 4,
-Mystery = 5,
-}
-}
-
-// snow.data.DataDef.RankTypes
-rsz_enum! {
-#[rsz(i32)]
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum RankTypes {
-Low = 0,
-Upper = 1,
-Master = 2,
-}
-}
-
-// snow.data.NormalItemData.ItemGroupTypes
-rsz_enum! {
-#[rsz(i32)]
-#[derive(Debug, Serialize)]
-pub enum ItemGroupTypes {
-Drink = 0,
-Food = 1,
-Others = 2,
-}
-}
-
-// snow.data.ContentsIdSystem.ItemId
-rsz_enum! {
-#[rsz(u32)]
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
-pub enum ItemId {
-    Null = 0, // not defined in TDB, but appears in some overwear data
-    None = 0x04000000,
-    Normal(u32) = 0x04100000..=0x0410FFFF,
-    Ec(u32) = 0x04200000..=0x0420FFFF, // TODO: I_EC_0057 and up is offseted
-}
-}
-
-// snow.data.DataDef.RareTypes
-rsz_newtype! {
-    #[rsz_offset(1)]
-    #[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq)]
-    #[serde(transparent)]
-    pub struct RareTypes(pub u8);
-}
-
-rsz_enum! {
-    #[rsz(i32)]
-    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum MaterialCategory {
-        None = 0,
-        LrHr(i32) = 1..=85,
-        ArmorSphere = 86,
-        Mr(i32) = 153..=1000,
-    }
-}
-
-// Eh, please
-impl MaterialCategory {
-    pub fn from_msg_id(id: i32) -> MaterialCategory {
-        if id < 200 {
-            MaterialCategory::LrHr(id - 1)
-        } else {
-            MaterialCategory::Mr(id - 200)
-        }
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.ItemUserData.Param",
-        0x4A0D92B0 = 15_00_00,
-        0x76FB6537 = 14_00_00,
-        0xD0C19D16 = 13_00_00,
-        0xc4940266 = 10_00_02,
-        0xB8376E37 = 11_00_01,
-        0xBF248F26 = 12_00_00
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct ItemUserDataParam {
-            pub id: ItemId,
-            pub cariable_filter: CarriableFilter,
-            pub type_: ItemTypes,
-            pub rare: RareTypes,
-            pub pl_max_count: u32,
-            pub ot_max_count: u32,
-            pub sort_id: u32,
-            pub supply: bool,
-            pub can_put_in_dog_pouch: bool,
-            pub show_item_window: bool,
-            pub show_action_window: bool,
-            pub infinite: bool,
-            pub default: bool,
-            pub icon_can_eat: bool,
-            pub icon_item_rank: IconRank,
-            pub effect_rare: bool,
-            pub icon_chara: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconPatternNo
-            pub icon_color: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconColor
-            pub se_type: i32, // snow.data.GameItemEnum.SeType
-            pub sell_price: u32,
-            pub buy_price: u32,
-            pub item_action_type: i32, // snow.data.GameItemEnum.ItemActionType
-            pub rank_type: RankTypes,
-            pub item_group: ItemGroupTypes,
-            pub category_worth: u32,
-            pub material_category: Vec<MaterialCategory>,
-            pub evaluation_value: u32,
-        }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.ItemUserData",
-        path = "data/System/ContentsIdSystem/Item/Normal/ItemData.user",
-        0x66200423 = 0
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct ItemUserData {
-            pub param: Vec<ItemUserDataParam>,
-        }
-}
-
-// snow.data.ContentsIdSystem.LvBuffCageId
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum LvBuffCageId {
-        CommonNone = 0x18000000,
-        CommonError = 0x18000001,
-        CommonMax = 0x18000002,
-        Normal(u32) = 0x18100000..= 0x1810FFFF
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.NormalLvBuffCageBaseUserData.Param",
-        0x1026C5DC = 10_00_02
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct NormalLvBuffCageBaseUserDataParam {
-            pub id: LvBuffCageId,
-            pub sort_index: u32,
-            pub rarity: RareTypes,
-            pub model_lv: i32, // snow.equip.LvBuffCageModelLv
-            pub model_color_index: ColorTypes,
-            pub status_buff_limit: [u32; 5], // Health, Stamina, Attack, Defense, ?(always 3)
-            pub status_buff_add_value: [u32; 4], // Health, Stamina, Attack, Defense
-            pub status_buff_all_add_value: [u32; 4], // Health, Stamina, Attack, Defense
-            pub status_start_revise_val: [u32; 5], // all zero?
-            pub element_revise_val: [u32; 5], // all zero?
-        }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.NormalLvBuffCageBaseUserData",
-        path = "data/System/ContentsIdSystem/LvBuffCage/Normal/NormalLvBuffCageBaseData.user",
-        0x849E4F82 = 10_00_02
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct NormalLvBuffCageBaseUserData {
-            pub param: Vec<NormalLvBuffCageBaseUserDataParam>
-        }
-}*/
 
 // app.ItemDef.TYPE_Fixed
 rsz_enum! {
-    #[rsz(u32)]
+    #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum ItemDefTypeFixed {
+    pub enum ItemDefType {
         EXPENDABLE = 0,
         TOOL = 1,
         MATERIAL = 2,
@@ -226,7 +21,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum TEXT_TYPE_Fixed {
+    pub enum ItemDefTextType{
         INVALID = 0,
         TYPE_00 = 1,
         TYPE_01 = 2,
@@ -249,7 +44,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum ITEM_Fixed {
+    pub enum IconDefItem{
         INVALID = 0,
         ITEM_0000 = 1,
         ITEM_0001 = 2,
@@ -359,7 +154,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum EQUIP_Fixed {
+    pub enum IconDefEquip {
         INVALID = 0,
         EQUIP_0000 = 1,
         EQUIP_0001 = 2,
@@ -421,7 +216,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    enum TYPE_Fixed {
+    enum  ColorPresetType {
         I_NONE = 0,
         I_WHITE = 1,
         I_GRAY = 2,
@@ -543,7 +338,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum AddIcon_Fixed {
+    pub enum IconDefAddIcon {
         INVALID = 0,
         GREAT = 1,
         SHELL_LV1 = 2,
@@ -590,7 +385,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum RARE_Fixed {
+    pub enum ItemDefRare{
         RARE0 = 18,
         RARE1 = 17,
         RARE2 = 16,
@@ -610,7 +405,7 @@ rsz_enum! {
 rsz_enum! {
     #[rsz(i32)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
-    pub enum GET_RANK_Fixed {
+    pub enum ItemDefGetRank {
         NONE = 0,
         NORMAL = 1,
         RARE = 2,
@@ -618,45 +413,61 @@ rsz_enum! {
     }
 }
 
-
 rsz_struct! {
     #[rsz("app.user_data.ItemData.cData",
-        0x5A8F4FB8 = 0
+        0x8a3d34ff = 0,
     )]
         #[derive(Debug, Serialize)]
         pub struct user_data_ItemData_cData {
-            _Index: i32, // 0
-            _ItemId: i32, // 4
-            _RawName: Guid, // 8
-            _RawExplain: Guid, // 24
-            _align1: [u8; 2],
-            _SortId: i16, // 40
-            _Type: i32, // 44
-            _TextType: i32, // 48
-            _IconType: i32, // 52
-            _EquipIcon: i32, // 56
-            _IconColor: i32, // 60
-            _AddIconType: i32, // 64
-            _Rare: i32, // 68
-            _MaxCount: i16, // 70
-            _OtomoMax: i16, // 72 
-            _EnableOnRaptor: bool,// 74
-            _align2: [u8; 3], // 75
-            _SellPrice: i32, // 75 -> 76
-            _BuyPrice: i32, // 80
-            _Fix: bool, // 84
-            _Shikyu: bool, // 85
-            _Eatable: bool, // 86
-            _Window: bool, // 87
-            _Infinit: bool, // 88
-            _Heal: bool, // 89
-            _Battle: bool, // 90
-            _Special: bool, // 91
-            _ForMoney: bool, // 92
-            _OutBox: bool, // 93
-            _NonLevelShell: bool, // 94
-            _align3: [u8; 1], // 75
-            _GetRank: i32, // 95 -> 96
+            _Index: i32, // 0..4
+            _ItemId: i32, // 4..8
+            _RawName: Guid, // 8..24
+            _RawExplain: Guid, // 24..40
+            _SortId: i16, // 40..42
+            _Type: ItemDefType, // 44..48
+            _TextType: ItemDefTextType, // 48..52
+            _IconType: IconDefItem, // 52..56
+            _EquipIcon:IconDefEquip, // 56..60
+            _IconColor: ColorPresetType, // 60..64
+            _AddIconType: IconDefAddIcon, // 64..68
+            _Rare: ItemDefRare, // 68..72
+            _MaxCount: i16, // 72..74
+            _OtomoMax: i16, // 74..76
+            _EnableOnRaptor: bool,// 76..77
+            _SellPrice: i32, // 80..84
+            _BuyPrice: i32, // 84..88
+            _Fix: bool, // 88..89
+            _Shikyu: bool, // 89..90
+            _Eatable: bool, // 90..91
+            _Window: bool, // 91..92
+            _Infinit: bool, // 92..93
+            _Heal: bool, // 93..94
+            _Battle: bool, // 94..95
+            _Special: bool, // 95..96
+            _ForMoney: bool, // 96..97
+            _OutBox: bool, // 97..98
+            _NonLevelShell: bool, // 98..99
+            _GetRank: i32, //ItemDefGetRank, // 100..104
+            _padding: u64,
         }
 
+}
+
+rsz_struct! {
+    #[rsz("ace.user_data.ExcelUserData.cData",
+        0x63a5cf18 = 0
+        )]
+    #[derive(Debug, Serialize)]
+    pub struct UserDataExcelUserData {}
+}
+
+rsz_struct! {
+    #[rsz("app.user_data.ItemData",
+        0xbba858c = 0,
+        )]
+    #[derive(Debug, Serialize)]
+    pub struct UserDataItemData {
+        values: Vec<user_data_ItemData_cData>,
+        idk: u8,
+    }
 }
