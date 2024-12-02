@@ -6,6 +6,7 @@ use serde::*;
 // app.ItemDef.TYPE_Fixed
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum ItemDefType {
         EXPENDABLE = 0,
@@ -20,6 +21,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum ItemDefTextType{
         INVALID = 0,
@@ -43,6 +45,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum IconDefItem{
         INVALID = 0,
@@ -153,6 +156,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum IconDefEquip {
         INVALID = 0,
@@ -215,6 +219,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     enum  ColorPresetType {
         I_NONE = 0,
@@ -337,6 +342,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum IconDefAddIcon {
         INVALID = 0,
@@ -384,6 +390,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum ItemDefRare{
         RARE0 = 18,
@@ -404,6 +411,7 @@ rsz_enum! {
 
 rsz_enum! {
     #[rsz(i32)]
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
     pub enum ItemDefGetRank {
         NONE = 0,
@@ -456,18 +464,19 @@ rsz_struct! {
 rsz_struct! {
     #[rsz("ace.user_data.ExcelUserData.cData",
         0x63a5cf18 = 0
-        )]
-    #[derive(Debug, Serialize)]
-    pub struct UserDataExcelUserData {}
+    )]
+        #[derive(Debug, Serialize)]
+        pub struct UserDataExcelUserData {
+        }
 }
 
 rsz_struct! {
     #[rsz("app.user_data.ItemData",
         0xbba858c = 0,
-        )]
-    #[derive(Debug, Serialize)]
-    pub struct UserDataItemData {
-        values: Vec<user_data_ItemData_cData>,
-        idk: u8,
-    }
+    )]
+        #[derive(Debug, Serialize)]
+        pub struct UserDataItemData {
+            values: Vec<user_data_ItemData_cData>,
+            idk: u8,
+        }
 }

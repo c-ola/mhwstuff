@@ -1,8 +1,10 @@
 mod common;
 mod item;
+mod skill;
 
 pub use common::*;
 pub use item::*;
+pub use skill::*;
 
 
 use crate::file_ext::*;
@@ -202,6 +204,7 @@ impl Rsz {
                     &buffer[0..read]
                 )
             })?;
+            println!("{hash:08x}, {crc:08x}");
             let version = if type_info.versions.is_empty() {
                 version_hint.unwrap_or(0)
             } else {
@@ -227,7 +230,7 @@ impl Rsz {
             node_buf.push(NodeSlot::Instance(node));
         }
 
-        println!("{node_buf:?}");
+        //println!("{node_buf:?}");
         let result = self
             .roots
             .iter()
@@ -554,7 +557,12 @@ pub static RSZ_TYPE_MAP: Lazy<HashMap<u32, RszTypeInfo>> = Lazy::new(|| {
 
     r!(UserDataExcelUserData, UserDataItemData);
     r!(user_data_ItemData_cData);
-
+    r!(
+        userdataSkillCommonData,
+        userdataSkillCommonDatacData,
+        userdataSkillData,
+        userdataSkillDatacData,
+    );
 
     m
 });

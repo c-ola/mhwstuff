@@ -4,629 +4,319 @@ use crate::rsz_newtype;
 use crate::rsz_struct;
 use serde::*;
 
-// snow.data.DataDef.PlEquipSkillId
-rsz_enum! {
-    #[rsz(u8)]
-    #[derive(Debug, Serialize, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-    pub enum PlEquipSkillId {
-        None = 0,
-        Skill(u8) = 1..=0x6F,
-        MrSkill(u8) = 0x70..=0xA7
-    }
-}
-
-impl PlEquipSkillId {
-    pub fn to_tag_id(self) -> Option<u8> {
-        match self {
-            PlEquipSkillId::None => None,
-            PlEquipSkillId::Skill(i) => Some(i),
-            PlEquipSkillId::MrSkill(i) => Some(i + 200),
-        }
-    }
-
-    pub fn to_msg_tag(self) -> String {
-        match self.to_tag_id() {
-            None => "PlayerSkill_None".to_owned(),
-            Some(id) => format!("PlayerSkill_{id:03}"),
-        }
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.PlEquipSkillBaseUserData.Param",
-        0xBCDBC248 = 15_00_00,
-        0x19FEE250 = 13_00_00,
-        0xac747724 = 10_00_02,
-        0xCCCC00F1 = 11_00_01
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct PlEquipSkillBaseUserDataParam {
-        pub id: PlEquipSkillId,
-        pub max_level: i32, // snow.data.PlSkillData.SkillLvTypes, 0 = level 1
-        pub icon_color: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconColor
-        pub worth_point_list: Versioned<u32, 0, 14_99_99>,
-        pub category_id_1: Versioned<u16, 15_00_00>, // snow.data.DataDef.PlEquipSkillCategoryId
-        pub category_id_2: Versioned<u16, 15_00_00>,
-        pub category_id_3: Versioned<u16, 15_00_00>
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.PlEquipSkillBaseUserData",
-        path = "data/Define/Player/Skill/PlEquipSkill/PlEquipSkillBaseData.user",
-        0x576909aa = 0
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct PlEquipSkillBaseUserData {
-        pub param: Vec<PlEquipSkillBaseUserDataParam>,
-    }
-}
-
-// snow.data.plHyakuryuSkill.ApplyRules
 rsz_enum! {
     #[rsz(i32)]
-    #[derive(Debug, Serialize)]
-    pub enum ApplyRules {
-        None = 0,
-        ElementNone = 1,
-        ElementFire = 2,
-        ElementWater = 3,
-        ElementThunter = 4,
-        ElementIce = 5,
-        ElementDragon = 6,
-        ElementPoison = 7,
-        ElementSleep = 8,
-        ElementParalyze = 9,
-        ElementBomb = 10,
-        ElementNotEqualMain = 11,
-        ElementFirstGroup = 12,
-        CanEquipTargetBottle = 13,
-        Series064 = 14,
-        Series065 = 15,
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
+    pub enum Skill_Fixed {
+        NONE = 0,
+        HunterSkill_000 = 1,
+        HunterSkill_001 = -2096489472,
+        HunterSkill_002 = -1607763456,
+        HunterSkill_003 = 313598432,
+        HunterSkill_004 = 1389859584,
+        HunterSkill_005 = -562534336,
+        HunterSkill_006 = 508916704,
+        HunterSkill_007 = 1268070400,
+        HunterSkill_008 = 1452140672,
+        HunterSkill_009 = -776946176,
+        HunterSkill_010 = -1716324608,
+        HunterSkill_011 = -1863702144,
+        HunterSkill_012 = 166057120,
+        HunterSkill_013 = -844978880,
+        HunterSkill_014 = 1160639488,
+        HunterSkill_015 = 1050520384,
+        HunterSkill_016 = 559251072,
+        HunterSkill_017 = 1500129152,
+        HunterSkill_018 = 1594792704,
+        HunterSkill_019 = -420608864,
+        HunterSkill_020 = 397306144,
+        HunterSkill_021 = -1272455936,
+        HunterSkill_022 = -283334048,
+        HunterSkill_023 = 691199232,
+        HunterSkill_024 = -682586176,
+        HunterSkill_025 = -1689391744,
+        HunterSkill_026 = -307644128,
+        HunterSkill_027 = -1674114176,
+        HunterSkill_028 = -181127504,
+        HunterSkill_029 = 686533440,
+        HunterSkill_030 = -1946345856,
+        HunterSkill_031 = -1073401280,
+        HunterSkill_032 = -893407296,
+        HunterSkill_033 = 1758661504,
+        HunterSkill_034 = -1237438336,
+        HunterSkill_035 = -596764096,
+        HunterSkill_036 = 802725120,
+        HunterSkill_037 = -160562336,
+        HunterSkill_038 = -1961297152,
+        HunterSkill_039 = 552982656,
+        HunterSkill_040 = -2123993856,
+        HunterSkill_041 = 2056144000,
+        HunterSkill_042 = 1168075648,
+        HunterSkill_043 = -256222016,
+        HunterSkill_044 = 884659392,
+        HunterSkill_045 = -1507579776,
+        HunterSkill_046 = 1444935552,
+        HunterSkill_047 = -1961116288,
+        HunterSkill_048 = -1475134080,
+        HunterSkill_049 = 1618751872,
+        HunterSkill_050 = -632440576,
+        HunterSkill_051 = 919683456,
+        HunterSkill_052 = -676967744,
+        HunterSkill_053 = 169998480,
+        HunterSkill_054 = -2022542848,
+        HunterSkill_055 = 402237312,
+        HunterSkill_056 = -168922880,
+        HunterSkill_057 = 353114912,
+        HunterSkill_058 = 1865909632,
+        HunterSkill_059 = 2106877312,
+        HunterSkill_060 = 1359821952,
+        HunterSkill_061 = -774473472,
+        HunterSkill_062 = -397570464,
+        HunterSkill_063 = 1763191040,
+        HunterSkill_064 = 632127488,
+        HunterSkill_065 = -315492576,
+        HunterSkill_066 = -111868368,
+        HunterSkill_067 = 1077686656,
+        HunterSkill_068 = 1346775424,
+        HunterSkill_069 = -1235658624,
+        HunterSkill_070 = -1121468544,
+        HunterSkill_071 = 634068352,
+        HunterSkill_072 = 192746944,
+        HunterSkill_073 = -895828480,
+        HunterSkill_074 = -609509888,
+        HunterSkill_075 = 144660544,
+        HunterSkill_076 = 673822976,
+        HunterSkill_077 = 1425756032,
+        HunterSkill_078 = 383104832,
+        HunterSkill_079 = 652161472,
+        HunterSkill_080 = 2143068800,
+        HunterSkill_081 = -2125233152,
+        HunterSkill_082 = -568838336,
+        HunterSkill_083 = 1459579264,
+        HunterSkill_084 = 522288832,
+        HunterSkill_085 = -193031552,
+        HunterSkill_086 = 705317568,
+        HunterSkill_087 = 820385792,
+        HunterSkill_088 = -201445760,
+        HunterSkill_089 = 860517760,
+        HunterSkill_090 = 595870656,
+        HunterSkill_091 = 1470960256,
+        HunterSkill_092 = -940963648,
+        HunterSkill_093 = 1660398080,
+        HunterSkill_094 = 114248280,
+        HunterSkill_095 = -857543744,
+        HunterSkill_096 = -481419552,
+        HunterSkill_097 = -1684613760,
+        HunterSkill_098 = 894530496,
+        HunterSkill_099 = 850626240,
+        HunterSkill_100 = 422666624,
+        HunterSkill_101 = 1522720256,
+        HunterSkill_102 = 742695104,
+        HunterSkill_103 = 78208296,
+        HunterSkill_104 = -324145920,
+        HunterSkill_105 = 2045149568,
+        HunterSkill_106 = -1304512512,
+        HunterSkill_107 = -1110806016,
+        HunterSkill_108 = -1577668736,
+        HunterSkill_109 = -692636288,
+        HunterSkill_110 = 280489184,
+        HunterSkill_111 = 27684744,
+        HunterSkill_112 = 321793536,
+        HunterSkill_113 = -1700743296,
+        HunterSkill_114 = 565867136,
+        HunterSkill_115 = 1174975744,
+        HunterSkill_116 = -171796848,
+        HunterSkill_117 = 2087444736,
+        HunterSkill_118 = 1890580224,
+        HunterSkill_119 = 1940820864,
+        HunterSkill_120 = 1522518528,
+        HunterSkill_121 = 2027231744,
+        HunterSkill_122 = -411441344,
+        HunterSkill_123 = 1336053760,
+        HunterSkill_124 = 1294812416,
+        HunterSkill_125 = 1996090368,
+        HunterSkill_126 = 1845834112,
+        HunterSkill_127 = -290164800,
+        HunterSkill_128 = 1652542848,
+        HunterSkill_129 = -285123456,
+        HunterSkill_130 = 1934955136,
+        HunterSkill_131 = 588396096,
+        HunterSkill_132 = -1203508096,
+        HunterSkill_133 = 457912640,
+        HunterSkill_134 = -593005376,
+        HunterSkill_135 = -394258944,
+        HunterSkill_136 = -257693696,
+        HunterSkill_137 = 898284480,
+        HunterSkill_138 = 469540352,
+        HunterSkill_139 = 1472632704,
+        HunterSkill_140 = 309360992,
+        HunterSkill_141 = -1629629184,
+        HunterSkill_142 = -1662969472,
+        HunterSkill_143 = -1478544256,
+        HunterSkill_144 = 424768352,
+        HunterSkill_145 = 1639440000,
+        HunterSkill_146 = -856322816,
+        HunterSkill_147 = -744834688,
+        HunterSkill_148 = 1494573312,
+        HunterSkill_149 = -1540920320,
+        HunterSkill_150 = -1196219264,
+        HunterSkill_151 = -1950413440,
+        HunterSkill_152 = 1406914944,
+        HunterSkill_153 = -812084224,
+        HunterSkill_154 = 1960395264,
+        HunterSkill_155 = 56719788,
+        HunterSkill_156 = 424767232,
+        HunterSkill_157 = 654153152,
+        HunterSkill_158 = 471964960,
+        HunterSkill_159 = -1678847360,
+        HunterSkill_160 = 1582392192,
+        HunterSkill_161 = -1724907776,
+        HunterSkill_189 = 1966172160,
+        HunterSkill_190 = 1489568384,
+        HunterSkill_191 = 2083363072,
+        HunterSkill_192 = 1150634496,
+        HunterSkill_193 = -1437098880,
+        HunterSkill_194 = 504506560,
+        HunterSkill_195 = -1662120192,
+        HunterSkill_196 = -1702725248,
+        HunterSkill_197 = 1613139840,
+        HunterSkill_198 = 1711950720,
+        HunterSkill_162 = 1968728576,
+        HunterSkill_163 = 1685697920,
+        HunterSkill_164 = -1648695680,
+        HunterSkill_165 = 451472896,
+        HunterSkill_166 = 1487598336,
+        HunterSkill_167 = -1664678272,
+        HunterSkill_168 = 1998066176,
+        HunterSkill_169 = 583598144,
+        HunterSkill_170 = -1769550080,
+        HunterSkill_171 = 2107855744,
+        HunterSkill_172 = -1305836672,
+        HunterSkill_173 = -2041451904,
+        HunterSkill_174 = -1642078720,
+        HunterSkill_175 = -62248528,
+        HunterSkill_176 = 539707072,
+        HunterSkill_177 = 2104075392,
+        HunterSkill_178 = 1980404096,
+        HunterSkill_179 = -215826112,
+        HunterSkill_180 = -3666104,
+        HunterSkill_181 = -418246240,
+        HunterSkill_182 = 741102208,
+        HunterSkill_183 = 722735744,
+        HunterSkill_184 = -1432692352,
+        HunterSkill_185 = -964369920,
+        HunterSkill_186 = 918165056,
+        HunterSkill_187 = -1768553344,
+        HunterSkill_188 = -1468066176,
+        HunterSkill_199 = -181774400,
+        HunterSkill_200 = -403054144,
+        HunterSkill_201 = -1578573696,
+        HunterSkill_202 = -847539392,
+        HunterSkill_203 = -555494336,
+        HunterSkill_204 = 576193792,
+        HunterSkill_205 = 1484575872,
+        HunterSkill_206 = -1754225280,
+        HunterSkill_207 = -911441792,
+        HunterSkill_208 = -542666496,
+        MAX = -1410493568,
     }
 }
 
-// snow.data.GameItemEnum.BulletType
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, Copy, Clone, Hash, PartialEq, Eq)]
-    pub enum BulletType {
-        None = 0,
-        Normal1 = 1,
-        Normal2 = 2,
-        Normal3 = 3,
-        Kantsu1 = 4,
-        Kantsu2 = 5,
-        Kantsu3 = 6,
-        SanW1 = 7,
-        SanW2 = 8,
-        SanW3 = 9,
-        SanO1 = 10,
-        SanO2 = 11,
-        SanO3 = 12,
-        Tekko1 = 13,
-        Tekko2 = 14,
-        Tekko3 = 15,
-        Kakusan1 = 16,
-        Kakusan2 = 17,
-        Kakusan3 = 18,
-        Poison1 = 19,
-        Poison2 = 20,
-        Paralyze1 = 21,
-        Paralyze2 = 22,
-        Sleep1 = 23,
-        Sleep2 = 24,
-        Genki1 = 25,
-        Genki2 = 26,
-        Heal1 = 27,
-        Heal2 = 28,
-        Kijin = 29,
-        Kouka = 30,
-        Fire = 31,
-        FireKantsu = 32,
-        Water = 33,
-        WaterKantsu = 34,
-        Ice = 35,
-        IceKantsu = 36,
-        Thunder = 37,
-        ThunderKantsu = 38,
-        Dragon = 39,
-        DragonKantsu = 40,
-        Zanretsu = 41,
-        Ryugeki = 42,
-        Capture = 43,
-        Setti = 44,
-        Gatling = 45,
-        Snipe = 46,
-        GatlingHeal = 47,
-        SnipeHeal = 48,
-        WireBullet = 49,
-        FullAuto = 50,
-        Max = 51, // what is this?
-    }
-}
-
-// snow.data.BowWeaponBaseData.BottlePowerUpTypes
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, PartialEq, Eq, Copy, Clone)]
-    pub enum BottlePowerUpTypes {
-        None = 0,
-        ShortRange = 1,
-        Poison = 2,
-        Paralyze = 3,
-        Sleep = 4,
-    }
-}
-
-// snow.data.ElementData.ElementType
-rsz_enum! {
-    #[rsz(i32)]
-    #[derive(Debug, Serialize, PartialEq, Eq, Clone, Copy)]
-    pub enum ElementType {
-        None = 0,
-        Fire = 1,
-        Water = 2,
-        Thunder = 3,
-        Ice = 4,
-        Dragon = 5,
-        Poison = 6, // Posion
-        Sleep = 7,
-        Paralyze = 8,
-        Bomb = 9,
-    }
-}
-
-// snow.data.GunLanceFireData.GunLanceFireType
-rsz_enum! {
-    #[rsz(i32)]
-    #[derive(Debug, Serialize, Copy, Clone)]
-    pub enum GunLanceFireType {
-        Normal = 0,
-        Radial = 1,
-        Diffusion = 2,
-    }
-}
-
-impl std::fmt::Display for GunLanceFireType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                GunLanceFireType::Normal => "Normal",
-                GunLanceFireType::Radial => "Long",
-                GunLanceFireType::Diffusion => "Wide",
-            }
-        )
-    }
-}
-
-// snow.data.GunLanceFireData.GunLanceFireLv
-rsz_newtype! {
-    #[rsz_offset(1)]
-    #[derive(Debug, Serialize)]
-    #[serde(transparent)]
-    pub struct GunLanceFireLv(pub i32);
-}
-
-// snow.data.ChargeAxeWeaponBaseData.BottleTypes
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, Copy, Clone)]
-    pub enum ChargeAxeBottleTypes {
-        Power = 2,
-        StrongElement = 1,
-    }
-}
-
-impl std::fmt::Display for ChargeAxeBottleTypes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                ChargeAxeBottleTypes::Power => "Power",
-                ChargeAxeBottleTypes::StrongElement => "Elemental",
-            }
-        )
-    }
-}
-
-// snow.data.SlashAxeWeaponBaseData.BottleTypes
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, Clone, Copy)]
-    pub enum SlashAxeBottleTypes {
-        Power = 2,
-        StrongElement = 1,
-        Poison = 3,
-        Paralyze = 4,
-        DownStamina = 7,
-        Dragon = 8,
-    }
-}
-
-impl std::fmt::Display for SlashAxeBottleTypes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                SlashAxeBottleTypes::Power => "Power",
-                SlashAxeBottleTypes::StrongElement => "Elemental",
-                SlashAxeBottleTypes::Poison => "Poison",
-                SlashAxeBottleTypes::Paralyze => "Paralysis",
-                SlashAxeBottleTypes::DownStamina => "Exhaust",
-                SlashAxeBottleTypes::Dragon => "Dragon",
-            }
-        )
-    }
-}
-
-// snow.data.HeavyBowgunWeaponData.UniqueBulletType
-rsz_enum! {
-    #[rsz(i32)]
-    #[derive(Debug, Serialize)]
-    pub enum UniqueBulletType {
-        Snipe = 0,
-        Gatling = 1,
-    }
-}
-
-impl std::fmt::Display for UniqueBulletType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                UniqueBulletType::Snipe => "Wyvernsnipe",
-                UniqueBulletType::Gatling => "Wyvernheart",
-            }
-        )
-    }
-}
-
-// snow.data.BowWeaponBaseData.ChargeTypes
 rsz_enum! {
     #[rsz(i32)]
-    #[derive(Debug, Serialize, Copy, Clone)]
-    pub enum BowChargeTypes {
-        None = 0,
-        BurstLv1 = 1,
-        BurstLv2 = 2,
-        BurstLv3 = 3,
-        BurstLv4 = 4,
-        BurstLv5 = 5,
-        DiffusionLv1 = 6,
-        DiffusionLv2 = 7,
-        DiffusionLv3 = 8,
-        DiffusionLv4 = 9,
-        DiffusionLv5 = 10,
-        TransfixLv1 = 11,
-        TransfixLv2 = 12,
-        TransfixLv3 = 13,
-        TransfixLv4 = 14,
-        TransfixLv5 = 15,
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
+    enum SkillType_Fixed {
+        NONE = 441208832,
+        SkillType_00 = -889834816,
+        SkillType_01 = -1995418368,
+        SkillType_02 = -312262112,
+        SkillType_03 = -1166334080,
+        SkillType_04 = -1446651008,
+        SkillType_05 = -1152729984,
+        SkillType_06 = -1251602944,
+        MAX = 1355062528,
     }
 }
 
-impl std::fmt::Display for BowChargeTypes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                BowChargeTypes::None => "None",
-                BowChargeTypes::BurstLv1 => "Rapid Lv1",
-                BowChargeTypes::BurstLv2 => "Rapid Lv2",
-                BowChargeTypes::BurstLv3 => "Rapid Lv3",
-                BowChargeTypes::BurstLv4 => "Rapid Lv4",
-                BowChargeTypes::BurstLv5 => "Rapid Lv5",
-                BowChargeTypes::DiffusionLv1 => "Spread Lv1",
-                BowChargeTypes::DiffusionLv2 => "Spread Lv2",
-                BowChargeTypes::DiffusionLv3 => "Spread Lv3",
-                BowChargeTypes::DiffusionLv4 => "Spread Lv4",
-                BowChargeTypes::DiffusionLv5 => "Spread Lv5",
-                BowChargeTypes::TransfixLv1 => "Pierce Lv1",
-                BowChargeTypes::TransfixLv2 => "Pierce Lv2",
-                BowChargeTypes::TransfixLv3 => "Pierce Lv3",
-                BowChargeTypes::TransfixLv4 => "Pierce Lv4",
-                BowChargeTypes::TransfixLv5 => "Pierce Lv5",
-            }
-        )
-    }
-}
-
-// snow.data.BowWeaponBaseData.BottleTypes
 rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize)]
-    pub enum BowBottleTypes {
-        ShortRange = 0,
-        Power = 1,
-        Poison = 2,
-        Paralyze = 3,
-        Sleep = 4,
-        Blast = 5,
-        DownStamina = 6,
-        Max = 7,
-        None = 8,
+    #[rsz(i32)]
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
+    enum SkillCategory_Fixed {
+        EQUIP = 0,
+        SERIES = 1,
+        GROUP = 2,
+        WEAPON = 3,
+        MEAL = 4,
+        MAX = 5,
     }
 }
 
-// snow.data.DataDef.PlHyakuryuSkillId
 rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-    pub enum PlHyakuryuSkillId {
-        None = 0,
-        Skill(u32) = 1..=10000,
-    }
-}
-
-// snow.data.BowWeaponBaseData.ChageStartLvTypes
-rsz_newtype! {
-    #[rsz_offset(1)]
-    #[derive(Debug, Serialize)]
-    #[serde(transparent)]
-    pub struct BowChageStartLvTypes(pub i32);
-}
-
-// snow.data.InsectGlaiveWeaponBaseData.InsectLevelTypes
-rsz_newtype! {
-    #[rsz_offset(1)]
-    #[derive(Debug, Serialize)]
-    #[serde(transparent)]
-    pub struct InsectLevelTypes(pub i32);
-}
-
-rsz_struct! {
-    #[rsz("snow.data.PlHyakuryuSkillBaseUserData.Param",
-        0x4557B275 = 15_00_00,
-        0xc72df418 = 10_00_02,
-        0xD599D6B2 = 12_00_00
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct PlHyakuryuSkillBaseUserDataParam {
-        pub id: PlHyakuryuSkillId,
-        pub item_color: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconColor
-        pub apply_rule: ApplyRules,
-        pub add_atk: i8,
-        pub add_def_list: Vec<i8>,
-        pub add_critical_rate_list: Vec<i8>,
-        pub add_main_element_val: i8,
-        pub add_sub_element_val: i8,
-        pub add_bottle_element_val: i8,
-        pub add_insect_lv: i8,
-        pub add_recoil: i8,
-        pub add_reload: i8,
-        pub add_fluctuation: i8,
-        pub add_bullet_type_list: Vec<BulletType>,
-        pub add_lb_bullet_num_list: Vec<i8>,
-        pub add_hb_bullet_num_list: Vec<i8>,
-        pub add_rapid_shot_list: Vec<BulletType>,
-        pub add_build_up_bottle_type: BottlePowerUpTypes,
-        pub overwrite_flag_list: [bool; 17],
-        pub overwrite_main_element_type: ElementType,
-        pub overwrite_main_element_val: u8,
-        pub overwrite_sub_element_type: ElementType,
-        pub overwrite_sub_element_val: u8,
-        pub overwrite_sharpness_val_list: Vec<i32>,
-        pub overwrite_takumi_val_list: Vec<i32>,
-        pub overwrite_gl_fire_type: GunLanceFireType,
-        pub overwrite_gl_fire_lv: GunLanceFireLv,
-        pub overwrite_concert_id_list: Vec<i32>, // snow.data.DataDef.HornConcertId
-        pub overwrite_caxe_bottle_type: ChargeAxeBottleTypes,
-        pub overwrite_saxe_bottle_type: SlashAxeBottleTypes,
-        pub overwrite_insect_lv: InsectLevelTypes,
-        pub overwrite_hb_unique_bullet: UniqueBulletType,
-        pub overwrite_charge_type_list: Vec<BowChargeTypes>,
-        pub overwrite_charge_start_lv: BowChageStartLvTypes,
-        pub overwrite_curve_types: i32,
-        pub overwrite_bottle_equip_flag: BowBottleTypes,
+    #[rsz(i32)]
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
+    enum SKILL_Fixed {
+        INVALID = 0,
+        SKILL_0000 = 1,
+        SKILL_0001 = 2,
+        SKILL_0002 = 3,
+        SKILL_0003 = 4,
+        SKILL_0004 = 5,
+        SKILL_0005 = 6,
+        SKILL_0006 = 7,
+        SKILL_0007 = 8,
+        SKILL_0008 = 9,
+        SKILL_0009 = 10,
+        SKILL_0010 = 11,
+        SKILL_0011 = 12,
+        SKILL_0012 = 13,
+        SKILL_0013 = 14,
+        MAX = 15,
     }
 }
 
 rsz_struct! {
-    #[rsz("snow.data.PlHyakuryuSkillBaseUserData",
-        path = "data/Define/Player/Skill/PlHyakuryuSkill/PlHyakuryuSkillBaseData.user",
-        0xaa891f5b = 0
-    )]
+    #[rsz("app.user_data.SkillCommonData", 0x73facd33 = 0)]
     #[derive(Debug, Serialize)]
-    pub struct PlHyakuryuSkillBaseUserData {
-        pub param: Vec<PlHyakuryuSkillBaseUserDataParam>,
+    pub struct userdataSkillCommonData {
+        _Values: Vec<userdataSkillCommonDatacData>,
     }
 }
-
 rsz_struct! {
-    #[rsz("snow.data.PlHyakuryuSkillRecipeUserData.Param",
-        0xB623309B = 15_00_00,
-        0x50C9DF1D = 14_00_00,
-        0x8FEFA1E4 = 13_00_00,
-        0xa10bbbc4 = 10_00_02,
-        0xFBAE98EE = 11_00_01,
-        0x5DF74986 = 12_00_00
-    )]
+    #[rsz("app.user_data.SkillCommonData.cData", 0x3646d59 = 0)]
     #[derive(Debug, Serialize)]
-    pub struct PlHyakuryuSkillRecipeUserDataParam {
-        pub recipe_no: u32,
-        pub skill_id: PlHyakuryuSkillId,
-        pub cost: u32,
-        pub recipe_item_id_list:Vec<ItemId>,
-        pub recipe_item_num_list:Vec<u32>
+    pub struct userdataSkillCommonDatacData {
+        _Index: i32,
+        _skillId: Skill_Fixed,
+        _skillType:SkillType_Fixed,
+        _skillCategory: SkillCategory_Fixed,
+        _SkillIconType: SKILL_Fixed,
+        _skillName: Guid,
+        _skillExplain: Guid,
+        _SortId: i32,
     }
 }
-
 rsz_struct! {
-    #[rsz("snow.data.PlHyakuryuSkillRecipeUserData",
-        path = "data/Define/Player/Skill/PlHyakuryuSkill/HyakuryuSkillRecipeData.user",
-        0x57557b64 = 0
-    )]
+    #[rsz("app.user_data.SkillData", 0x7a93f660 = 0)]
     #[derive(Debug, Serialize)]
-    pub struct PlHyakuryuSkillRecipeUserData {
-        pub param: Vec<PlHyakuryuSkillRecipeUserDataParam>,
+    pub struct userdataSkillData {
+        _Values: Vec<userdataSkillDatacData>,
     }
 }
-
-// snow.equip.DecorationsId
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, Copy, Clone, Hash, PartialEq, Eq)]
-    pub enum DecorationsId {
-        None = 0,
-        Deco(u32) = 1..=108,
-        MrDeco(u32) = 109..=1000,
-    }
-}
-
-impl DecorationsId {
-    pub fn to_msg_tag(self) -> String {
-        match self {
-            DecorationsId::None => "Decorations_None".to_owned(),
-            DecorationsId::Deco(i) => format!("Decorations_{i:03}"),
-            DecorationsId::MrDeco(i) => format!("Decorations_{:04}", i + 200),
-        }
-    }
-}
-
 rsz_struct! {
-    #[rsz("snow.data.DecorationsBaseUserData.Param",
-        0x5298A390 = 15_00_00,
-        0x18C397F2 = 14_00_00,
-        0xE302DF49 = 13_00_00,
-        0x041e623d = 10_00_02,
-        0x5A02A160 = 11_00_01
-    )]
+    #[rsz("app.user_data.SkillData.cData", 0x334f6407 = 0)]
     #[derive(Debug, Serialize)]
-    pub struct DecorationsBaseUserDataParam {
-        pub id: DecorationsId,
-        pub sort_id: u32,
-        pub rare: RareTypes,
-        pub icon_color: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconColor
-        pub base_price: u32,
-        pub decoration_lv: i32, // snow.data.DataDef.DecorationsSlotLvTypes
-        pub skill_id_list: [PlEquipSkillId; 2],
-        pub skill_lv_list: [i32; 2],
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.DecorationsBaseUserData",
-        path = "data/Define/Player/Equip/Decorations/DecorationsBaseData.user",
-        0x7a6f3daa = 0
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct DecorationsBaseUserData {
-        pub param: Vec<DecorationsBaseUserDataParam>,
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.DecorationsProductUserData.Param",
-        0x56AF86EF = 16_00_00,
-        0x0884DACE = 15_00_00,
-        0x8A090F5C = 14_00_00,
-        0x8B4D41E5 = 13_00_00,
-        0x1B205AA6 = 10_00_02,
-        0x63B17027 = 11_00_01,
-        0xA6F02F12 = 12_00_00,
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct DecorationsProductUserDataParam {
-        pub id: DecorationsId,
-        pub item_flag: ItemId,
-        pub enemy_flag: EmTypes,
-        pub progress_flag: i32, // snow.data.DataDef.UnlockProgressTypes
-        pub item_id_list: Vec<ItemId>,
-        pub item_num_list: Vec<u32>,
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.DecorationsProductUserData",
-        path = "data/Define/Player/Equip/Decorations/DecorationsProductData.user",
-        0x320514c0 = 0
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct DecorationsProductUserData {
-        pub param: Vec<DecorationsProductUserDataParam>,
-    }
-}
-
-// snow.equip.DecorationsId
-rsz_enum! {
-    #[rsz(u32)]
-    #[derive(Debug, Serialize, Copy, Clone, Hash, PartialEq, Eq)]
-    pub enum HyakuryuDecoId {
-        None = 0x00100000,
-        Deco(u32) = 0x00100001..=0x0010FFFF
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.HyakuryuDecoBaseUserData.Param",
-        0x6C079912 = 15_00_00,
-        0x6790376E = 14_00_00,
-        0xd431117c = 10_00_02,
-        0x68E28EFF = 11_00_01,
-        0x07A343F4 = 12_00_00,
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct HyakuryuDecoBaseUserDataParam {
-        pub id: HyakuryuDecoId,
-        pub sort_id: u32,
-        pub rare: RareTypes,
-        pub icon_color: i32, // snow.gui.SnowGuiCommonUtility.Icon.ItemIconColor
-        pub base_price: u32,
-
-        pub decoration_lv: i32, // snow.data.DataDef.HyakuryuDecoSlotTypes
-        pub hyakuryu_skill_id: PlHyakuryuSkillId,
-        pub weapon_equip_flag: Vec<bool>,
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.HyakuryuDecoBaseUserData",
-        path = "data/Define/Player/Equip/HyakuryuDeco/HyakuryuDecoBaseData.user",
-        0xf5419ea6 = 10_00_02
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct HyakuryuDecoBaseUserData {
-        pub param: Vec<HyakuryuDecoBaseUserDataParam>,
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.HyakuryuDecoProductUserData.Param",
-        0x7AAD8317 = 16_00_00,
-        0x62B6332B = 15_00_00,
-        0xECBBA797 = 14_00_00,
-        0x7FED1C2D = 13_00_00,
-        0x4788eebf = 10_00_02,
-        0xB62082FD = 11_00_01,
-        0xA18827A0 = 12_00_00,
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct HyakuryuDecoProductUserDataParam {
-        pub id: HyakuryuDecoId,
-        pub item_flag: ItemId,
-        pub enemy_flag: EmTypes,
-        pub progress_flag: i32, // snow.data.DataDef.UnlockProgressTypes
-        pub item_id_list: Vec<ItemId>,
-        pub item_num_list: Vec<u32>,
-        pub material_category: MaterialCategory,
-        pub point: u32,
-    }
-}
-
-rsz_struct! {
-    #[rsz("snow.data.HyakuryuDecoProductUserData",
-        path = "data/Define/Player/Equip/HyakuryuDeco/HyakuryuDecoProductData.user",
-        0x1bbfd96d = 10_00_02
-    )]
-    #[derive(Debug, Serialize)]
-    pub struct HyakuryuDecoProductUserData {
-        pub param: Vec<HyakuryuDecoProductUserDataParam>,
+    pub struct userdataSkillDatacData {
+        _Index: i32,
+        _dataId: i32,
+        _skillId: Skill_Fixed,
+        _SkillLv: i32,
+        _skillName: Guid,
+        _skillExplain: Guid,
+        _openSkill: Vec<Skill_Fixed>,
+        _value: Vec<i32>,
     }
 }
