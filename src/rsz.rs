@@ -253,7 +253,8 @@ impl Rsz {
         let mut leftover = vec![];
         cursor.read_to_end(&mut leftover)?;
         if !leftover.is_empty() {
-            bail!("Left over data {leftover:?}");
+            //bail!("Left over data {leftover:?}");
+            eprintln!("Left over data {leftover:?}");
         }
 
         Ok(result)
@@ -555,8 +556,7 @@ pub static RSZ_TYPE_MAP: Lazy<HashMap<u32, RszTypeInfo>> = Lazy::new(|| {
     }
 
 
-    r!(UserDataExcelUserData, UserDataItemData);
-    r!(user_data_ItemData_cData);
+    r!(userdataItemData, userdataItemDatacData);
     r!(
         userdataSkillCommonData,
         userdataSkillCommonDatacData,

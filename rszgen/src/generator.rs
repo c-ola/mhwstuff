@@ -16,16 +16,29 @@ struct RszField {
 }
 
 impl RszField {
-    pub fn to_rust_field(&self, spaces: usize) -> String {
-        let mut type_name: String = type_map(self.r#type.clone()).to_string();
+    pub fn to_rust_field(&self, spaces: usize, parent: String) -> String {
+        let mut type_name: String = type_map(self.name.clone()).to_string();
+        let mut type_name = self.original_type.clone().replace(".", "_").to_case(Case::Pascal);
         if self.r#type == "Object" {
-            type_name = squish_name(&self.original_type).to_string();
+            if self.original_type == "ace.user_data.ExcelUserData.cData[]" {
+                type_name = squish_name(&parent);
+                type_name.push_str("cData")
+            } else {
+                type_name = squish_name(&self.original_type);
+            }
         }
         if self.array {
             type_name = format!("Vec<{}>", type_name); 
         }
-        let name = self.name.replace("_", "").to_case(Case::Snake);
-        format!("{}{}: {},\n", " ".repeat(spaces), name, type_name)
+        let mut name = self.name.replace("_", "").to_case(Case::Snake);
+        if name == "type" {
+            name = "r#".to_string() + &name; 
+        }
+        let mut s = format!("{}{}: {},\n", " ".repeat(spaces), name, type_name);
+        if self.original_type == "ace.user_data.ExcelUserData.cData[]" {
+            s.push_str(&format!("{}_idk: u8,\n", " ".repeat(spaces)));
+        }
+        s
     }
 }
 
@@ -56,7 +69,7 @@ impl RszStruct {
         s.push_str(allow);
 
         let name = squish_name(&self.name);
-        let fields: String = self.fields.iter().map(|f| f.to_rust_field(8)).collect();
+        let fields: String = self.fields.iter().map(|f| f.to_rust_field(8, self.name.clone())).collect();
         let identifier = "pub struct";
         s.push_str(&format!("    {} {} {{\n{}    }}\n", identifier, name, fields));
 
@@ -147,11 +160,7 @@ impl Rsz {
         structs.sort_by(|a, b| a.name.cmp(&b.name));
         structs = structs
             .into_iter()
-            .filter(|x| {
-                !(x.name.starts_with("ace")
-                    || x.name.contains(['!', '<', '>'])
-                    || x.name.contains("[["))
-                    && x.name.starts_with("app")
+            .filter(|x| { true
             })
             .collect::<Vec<RszStruct>>();
 
@@ -162,7 +171,7 @@ impl Rsz {
 
         let mut top_node = RszNode::NameSpace(HashMap::new(), 0);
         for rsz_struct in structs {
-            let mut cur_node: &mut RszNode = &mut top_node;
+            /*let mut cur_node: &mut RszNode = &mut top_node;
             let namespace: Vec<&str> = rsz_struct.name.split(".").collect();
             let count = namespace.len();
             for (i, name) in namespace.into_iter().enumerate() {
@@ -185,7 +194,7 @@ impl Rsz {
                         _ => ()
                     }
                 }
-            }
+            }*/
 
 
             if !rsz_struct.fields.is_empty() {
@@ -200,9 +209,9 @@ impl Rsz {
 
 fn squish_name(name: &str) -> String {
     if name.starts_with("System") {
-        return String::from("");
+    //    return String::from("");
     }
-    let binding = name.replace("[]", ""); // remove the [] in the Object name
+    let binding = name.replace("[]", "").replace("System.Collections.Generic.List`1<", "Vec<").replace(">", ">");
     let mut name = binding.as_str();
     if let Some(pos) = name.find('.') {
         name = name.split_at(pos + 1).1

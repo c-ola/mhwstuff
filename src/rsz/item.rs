@@ -422,61 +422,47 @@ rsz_enum! {
 }
 
 rsz_struct! {
-    #[rsz("app.user_data.ItemData.cData",
-        0x8a3d34ff = 0,
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct user_data_ItemData_cData {
-            _Index: i32, // 0..4
-            _ItemId: i32, // 4..8
-            _RawName: Guid, // 8..24
-            _RawExplain: Guid, // 24..40
-            _SortId: i16, // 40..42
-            _Type: ItemDefType, // 44..48
-            _TextType: ItemDefTextType, // 48..52
-            _IconType: IconDefItem, // 52..56
-            _EquipIcon:IconDefEquip, // 56..60
-            _IconColor: ColorPresetType, // 60..64
-            _AddIconType: IconDefAddIcon, // 64..68
-            _Rare: ItemDefRare, // 68..72
-            _MaxCount: i16, // 72..74
-            _OtomoMax: i16, // 74..76
-            _EnableOnRaptor: bool,// 76..77
-            _SellPrice: i32, // 80..84
-            _BuyPrice: i32, // 84..88
-            _Fix: bool, // 88..89
-            _Shikyu: bool, // 89..90
-            _Eatable: bool, // 90..91
-            _Window: bool, // 91..92
-            _Infinit: bool, // 92..93
-            _Heal: bool, // 93..94
-            _Battle: bool, // 94..95
-            _Special: bool, // 95..96
-            _ForMoney: bool, // 96..97
-            _OutBox: bool, // 97..98
-            _NonLevelShell: bool, // 98..99
-            _GetRank: i32, //ItemDefGetRank, // 100..104
-            _padding: u64,
-        }
-
+    #[rsz("app.user_data.ItemData", 0xbba858c = 0)]
+    #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
+    pub struct userdataItemData {
+        values: Vec<userdataItemDatacData>,
+        //idk: u8,
+    }
 }
-
 rsz_struct! {
-    #[rsz("ace.user_data.ExcelUserData.cData",
-        0x63a5cf18 = 0
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct UserDataExcelUserData {
-        }
-}
-
-rsz_struct! {
-    #[rsz("app.user_data.ItemData",
-        0xbba858c = 0,
-    )]
-        #[derive(Debug, Serialize)]
-        pub struct UserDataItemData {
-            values: Vec<user_data_ItemData_cData>,
-            idk: u8,
-        }
+    #[rsz("app.user_data.ItemData.cData", 0x8a3d34ff = 0)]
+    #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
+    pub struct userdataItemDatacData {
+        index: i32,
+        item_id: i32,
+        raw_name: Guid,
+        raw_explain: Guid,
+        sort_id: i16,
+        r#type: i32,
+        text_type: i32,
+        icon_type: i32,
+        equip_icon: i32,
+        icon_color: i32,
+        add_icon_type: i32,
+        rare: i32,
+        max_count: i16,
+        otomo_max: i16,
+        enable_on_raptor: bool,
+        sell_price: i32,
+        buy_price: i32,
+        fix: bool,
+        shikyu: bool,
+        eatable: bool,
+        window: bool,
+        infinit: bool,
+        heal: bool,
+        battle: bool,
+        special: bool,
+        for_money: bool,
+        out_box: bool,
+        non_level_shell: bool,
+        get_rank: Vec<i32>,
+    }
 }

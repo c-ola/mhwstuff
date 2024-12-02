@@ -281,42 +281,47 @@ rsz_enum! {
 rsz_struct! {
     #[rsz("app.user_data.SkillCommonData", 0x73facd33 = 0)]
     #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
     pub struct userdataSkillCommonData {
-        _Values: Vec<userdataSkillCommonDatacData>,
+        values: Vec<userdataSkillCommonDatacData>,
     }
 }
 rsz_struct! {
     #[rsz("app.user_data.SkillCommonData.cData", 0x3646d59 = 0)]
     #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
     pub struct userdataSkillCommonDatacData {
-        _Index: i32,
-        _skillId: Skill_Fixed,
-        _skillType:SkillType_Fixed,
-        _skillCategory: SkillCategory_Fixed,
-        _SkillIconType: SKILL_Fixed,
-        _skillName: Guid,
-        _skillExplain: Guid,
-        _SortId: i32,
+        index: i32,
+        skill_id: i32,
+        skill_type: i32,
+        skill_category: i32,
+        skill_icon_type: i32,
+        skill_name: Guid,
+        skill_explain: Guid,
+        sort_id: i32,
     }
 }
 rsz_struct! {
     #[rsz("app.user_data.SkillData", 0x7a93f660 = 0)]
     #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
     pub struct userdataSkillData {
-        _Values: Vec<userdataSkillDatacData>,
+        values: Vec<userdataSkillDatacData>,
+        //_idk: u8,
     }
 }
 rsz_struct! {
     #[rsz("app.user_data.SkillData.cData", 0x334f6407 = 0)]
     #[derive(Debug, Serialize)]
+    #[allow(dead_code)]
     pub struct userdataSkillDatacData {
-        _Index: i32,
-        _dataId: i32,
-        _skillId: Skill_Fixed,
-        _SkillLv: i32,
-        _skillName: Guid,
-        _skillExplain: Guid,
-        _openSkill: Vec<Skill_Fixed>,
-        _value: Vec<i32>,
+        index: i32,
+        data_id: i32,
+        skill_id: i32,
+        skill_lv: i32,
+        skill_name: Guid,
+        skill_explain: Guid,
+        open_skill: Vec<i32>,
+        value: Vec<i32>,
     }
 }
