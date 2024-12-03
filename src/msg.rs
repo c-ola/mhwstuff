@@ -1,6 +1,7 @@
-use std::{fs::File, io::Result, os::unix::fs, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Result, os::unix::fs, path::PathBuf};
 
-use serde::{ser::SerializeStruct, Serialize};
+use serde::{ser::{SerializeMap, SerializeStruct}, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::byte_reader::BytesFile;
@@ -8,6 +9,7 @@ use crate::byte_reader::BytesFile;
 const KEY: [u8; 16] = [207, 206, 251, 248, 236, 10, 51, 102, 147, 169, 29, 147, 80, 57, 95, 9];
 
 #[derive(Debug)]
+#[allow(unused)]
 struct Entry {
     unkn: u32,
     guid: [u8; 16],
@@ -17,34 +19,13 @@ struct Entry {
     content: Vec<String>,
 }
 
-impl Entry {
-    pub fn print(&self) {
-        let json = serde_json::to_string(self).unwrap();
-        println!("{}", json);
-    }
-}
-
-impl Serialize for Entry {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
-        let mut state = serializer.serialize_struct("Entry", 4)?;
-        let uuid = Uuid::from_bytes_le(self.guid).to_string();
-        state.serialize_field("guid", &uuid)?;
-        state.serialize_field("name", &self.name)?;
-        state.serialize_field("hash", &self.hash)?;
-        state.serialize_field("content", &self.content)?;
-        state.end()
-    }
-}
-
-
 #[derive(Debug, Default)]
 pub struct Msg {
     entries: Vec<Entry>,
 }
 
 #[derive(Default)]
+#[allow(unused)]
 pub struct MsgHeader {
     version: u32,
     magic: [u8; 4],
@@ -96,6 +77,8 @@ impl Msg {
             data,
             index: 0,
         };
+        
+        // PUT A CHECK HERE FOR IF ITS A VALID FILE OR NOT
 
         file.index = lang_offset as usize;
         let languages = (0..lang_count).map(|_| file.read::<u32>()).collect::<Result<Vec<_>>>()?;
@@ -104,9 +87,9 @@ impl Msg {
         file.read::<u64>()?; // idk what this does
 
         file.index += type_offset as usize;
-        let attribute_types = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
+        //let attribute_types = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
         file.index += type_name_offset as usize;
-        let type_names = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
+        //let type_names = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
 
 
         let mut entries: Vec<Entry> = Vec::new();
@@ -143,6 +126,22 @@ impl Msg {
         let _ = std::fs::create_dir_all(&path);
         path.push(name);
         let file: File = std::fs::File::create(path).expect("nah");
-        serde_json::to_writer_pretty(&file, &self.entries).unwrap();
-    }
+        #[derive(Serialize)]
+        struct EntryInfo {
+            name: String,
+            hash: u32,
+            content: Vec<String>
+        }
+        let map: HashMap<_, _> = self.entries.iter()
+            .map(|entry| {
+                let uuid = Uuid::from_bytes_le(entry.guid).to_string();
+                ( uuid, EntryInfo {
+                    name: entry.name.clone(),
+                    hash: entry.hash,
+                    content: entry.content.clone(),
+                })
+            }).collect();
+        let json_map = json!(map);
+        serde_json::to_writer_pretty(&file, &json_map).unwrap();
+}
 }

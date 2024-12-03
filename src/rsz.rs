@@ -569,10 +569,10 @@ pub static RSZ_TYPE_MAP: Lazy<HashMap<u32, RszTypeInfo>> = Lazy::new(|| {
         AutoUseStatusItemDataData,
     );
     r!(
-        userdataSkillCommonData,
-        userdataSkillCommonDatacData,
-        userdataSkillData,
-        userdataSkillDatacData,
+        SkillCommonData,
+        SkillCommonDatacData,
+        SkillData,
+        SkillDatacData,
     );
 
     m

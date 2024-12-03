@@ -33,16 +33,7 @@ struct Args {
     dump_all: bool,
 }
 
-const ITEM_FILES: [&str; 5] = [
-    "stm/gamedesign/common/item/itemdata.user.3",
-    "stm/gamedesign/common/item/fixitems.user.3",
-    "stm/gamedesign/common/item/itemrecipe.user.3",
-    //"stm/gamedesign/common/item/templeteitemmyset.user.3",
-    "stm/gamedesign/common/item/autousehealthitemdata.user.3",
-    "stm/gamedesign/common/item/autousestatusitemdata.user.3",
-];
-
-fn dump_files(root_dir: PathBuf, files: Vec<&str>) -> Result<()> {
+fn dump_files(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> Result<()> {
     for file in files {
         let full_file_path = root_dir.join(file);
         println!("Reading file {full_file_path:?}");
@@ -56,11 +47,11 @@ fn dump_files(root_dir: PathBuf, files: Vec<&str>) -> Result<()> {
             .collect::<String>();
 
         let file_path = Path::new(file);
-        let output_path = PathBuf::from("outputs/items")
-            .join(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+        let mut output_path = PathBuf::from("outputs").join(subdir);
+        output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
 
         println!("Trying to save to {:?}", &output_path);
-        let _ = fs::create_dir_all("outputs/items")?;
+        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
         let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
         f.write_all(json.as_bytes())?;
         println!("Saved file");
@@ -72,6 +63,7 @@ fn dump_msg(base_dir: PathBuf) -> Result<()> {
     let files = find_files_with_extension(base_dir, ".msg.23");
 
     for file in &files {
+        println!("{file:?}");
         if let Result::Ok(msg) = Msg::new(file.to_str().unwrap().to_string()) {
             msg.save(file.file_name().unwrap().to_str().expect("This should not have been able to happen"));
         } else {
@@ -90,7 +82,6 @@ fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf>
         if let Result::Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                println!("{path:?}");
                 if path.is_dir() {
                     paths.push(path);
                 } else {
@@ -113,8 +104,18 @@ fn main() -> Result<()> {
 
     if args.dump_all {
         let base_dir = PathBuf::from(args.file_name.clone());
-        let _ = dump_files(base_dir.clone(), ITEM_FILES.to_vec());
-        let _ = dump_msg(base_dir.clone().join("stm/gamedesign/text/"));
+        let _ = dump_files(base_dir.clone(), vec![
+            "stm/gamedesign/common/item/itemdata.user.3",
+            "stm/gamedesign/common/item/fixitems.user.3",
+            "stm/gamedesign/common/item/itemrecipe.user.3",
+            "stm/gamedesign/common/item/autousehealthitemdata.user.3",
+            "stm/gamedesign/common/item/autousestatusitemdata.user.3",
+        ], "items");
+        let _ = dump_files(base_dir.clone(), vec![
+            "stm/gamedesign/common/equip/skilldata.user.3",
+            "stm/gamedesign/common/equip/skillcommondata.user.3",
+        ], "skills");
+        let _ = dump_msg(base_dir.clone().join("stm/gamedesign/"));
     } else if args.file_name.ends_with("msg.23") {
         let msg = Msg::new(args.file_name.clone())?;
         msg.save(&args.file_name.clone());
