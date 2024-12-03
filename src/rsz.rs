@@ -1,11 +1,11 @@
 mod common;
 mod item;
 mod skill;
+mod enums;
 
 pub use common::*;
 pub use item::*;
 pub use skill::*;
-
 
 use crate::file_ext::*;
 use crate::hash::*;
@@ -245,7 +245,7 @@ impl Rsz {
         for (i, node) in node_buf.into_iter().enumerate() {
             if let NodeSlot::Instance(node) = node {
                 if Rc::strong_count(&node.any) == 1 {
-                    //bail!("Left over node {} ({})", i, node.symbol())
+                    bail!("Left over node {} ({})", i, node.symbol())
                 }
             }
         }
@@ -556,7 +556,18 @@ pub static RSZ_TYPE_MAP: Lazy<HashMap<u32, RszTypeInfo>> = Lazy::new(|| {
     }
 
 
-    r!(userdataItemData, userdataItemDatacData);
+    r!(
+        ItemData,
+        ItemDatacData,
+        FixItems,
+        FixItemscData,
+        ItemRecipe,
+        ItemRecipecData,
+        AutoUseHealthItemData,
+        AutoUseHealthItemDataData,
+        AutoUseStatusItemData,
+        AutoUseStatusItemDataData,
+    );
     r!(
         userdataSkillCommonData,
         userdataSkillCommonDatacData,

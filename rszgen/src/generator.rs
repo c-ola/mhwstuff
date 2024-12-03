@@ -1,10 +1,10 @@
 use convert_case::{Case, Casing};
 use serde::Deserialize;
 use core::fmt;
-use std::{collections::HashMap, fmt::{format, write}, fs::File, io::{BufReader, Read, Result, Write}, path::PathBuf
-};
+use std::{io::{BufReader, Read, Result, Write}, path::PathBuf};
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(unused)]
 struct RszField {
     align: u32,
     array: bool,
@@ -17,8 +17,14 @@ struct RszField {
 
 impl RszField {
     pub fn to_rust_field(&self, spaces: usize, parent: String) -> String {
-        let mut type_name: String = type_map(self.name.clone()).to_string();
-        let mut type_name = self.original_type.clone().replace(".", "_").to_case(Case::Pascal);
+        let basic_type = type_map(self.original_type.clone());
+        
+        let mut type_name = match basic_type {
+            Some(x) => x.to_string(),
+            None => {
+                self.original_type.clone().replace(".", "_").to_case(Case::Pascal).trim_start_matches("App").to_string().replace("[]", "")
+            },
+        };
         if self.r#type == "Object" {
             if self.original_type == "ace.user_data.ExcelUserData.cData[]" {
                 type_name = squish_name(&parent);
@@ -34,17 +40,15 @@ impl RszField {
         if name == "type" {
             name = "r#".to_string() + &name; 
         }
-        let mut s = format!("{}{}: {},\n", " ".repeat(spaces), name, type_name);
-        if self.original_type == "ace.user_data.ExcelUserData.cData[]" {
-            s.push_str(&format!("{}_idk: u8,\n", " ".repeat(spaces)));
-        }
+        let s = format!("{}{}: {},\n", " ".repeat(spaces), name, type_name);
+        //if self.original_type == "ace.user_data.ExcelUserData.cData[]" {
+            //s.push_str(&format!("{}_idk: u8,\n", " ".repeat(spaces)));
+        //}
         s
     }
-}
 
-impl fmt::Display for RszField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.r#type)
+    fn parse_type(&self, s: String) -> String {
+        s
     }
 }
 
@@ -79,53 +83,10 @@ impl RszStruct {
     }
 }
 
-impl fmt::Display for RszStruct {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tabs = " ".repeat((self.name.matches('.').count() + 1) * 4);
-        let name = self.name.split('.').last().unwrap();
-        write!(f, "{tabs}struct {} {{\n", name)?;
-        for i in &self.fields {
-            write!(f, "    {tabs}{}\n", i)?;
-        }
-        write!(f, "{tabs}}}")
-
-    }
-}
 
 #[derive(Clone)]
 pub struct Rsz {
     _structs: Vec<RszStruct>,
-}
-
-#[derive(Debug)]
-enum RszNode {
-    r#Struct(RszStruct),
-    NameSpace(HashMap<String, RszNode>, usize),
-}
-
-impl fmt::Display for RszNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RszNode::r#Struct(x) => write!(f, "{x}\n"),
-            RszNode::NameSpace(x, level) => {
-                for (key, val) in x {
-                    let print_namespace = match val {
-                        RszNode::r#Struct(x) => &x.name == key,
-                        RszNode::NameSpace(x, _) => x.len() != 1, 
-                    };
-                    let tabs = " ".repeat(level * 4);
-                    if !print_namespace{
-                        write!(f, "{val}")?;
-                    } else {
-                        //write!(f, "{tabs}namespace {} {{\n", key)?;
-                        write!(f, "{val}")?;
-                        //write!(f, "{tabs}}}\n")?;
-                    }
-                }
-                Ok(())
-            }
-        }
-    }
 }
 
 impl Rsz {
@@ -169,34 +130,7 @@ impl Rsz {
         struct_file.write(b"// Auto Generated structs from mhwilds rsz dump\n")?;
         struct_file.write(b"// rustfmt::skip\n")?;
 
-        let mut top_node = RszNode::NameSpace(HashMap::new(), 0);
         for rsz_struct in structs {
-            /*let mut cur_node: &mut RszNode = &mut top_node;
-            let namespace: Vec<&str> = rsz_struct.name.split(".").collect();
-            let count = namespace.len();
-            for (i, name) in namespace.into_iter().enumerate() {
-                let is_last = i == count - 1;
-                match cur_node {
-                    RszNode::NameSpace(x, level) => {
-                        if x.contains_key(name) {
-                        } else {
-                            x.insert(name.to_string(), RszNode::NameSpace(HashMap::new(), *level + 1));
-                        }
-                        cur_node = x.get_mut(name).expect("Could not find map");
-                    }
-                    _ => ()
-                }
-                if is_last {
-                    match cur_node {
-                        RszNode::NameSpace(x, _level) => {
-                            x.insert(rsz_struct.crc.to_string(), RszNode::Struct(rsz_struct.clone()));
-                        }
-                        _ => ()
-                    }
-                }
-            }*/
-
-
             if !rsz_struct.fields.is_empty() {
                 let _ = struct_file
                     .write(rsz_struct.to_rust_struct().as_str().as_bytes())
@@ -208,9 +142,6 @@ impl Rsz {
 }
 
 fn squish_name(name: &str) -> String {
-    if name.starts_with("System") {
-    //    return String::from("");
-    }
     let binding = name.replace("[]", "").replace("System.Collections.Generic.List`1<", "Vec<").replace(">", ">");
     let mut name = binding.as_str();
     if let Some(pos) = name.find('.') {
@@ -218,60 +149,29 @@ fn squish_name(name: &str) -> String {
     };
 
     let name: String = name.replace("_", "").split('.').collect();
-    name
+    let name = name.trim_start_matches("userdata");
+    name.to_string()
 }
 
-fn type_map(r#type: String) -> &'static str {
+fn type_map(r#type: String) -> Option<&'static str> {
     match r#type.as_str() {
-        "Int2" => "Int2",
-        "Int3" => "Int3",
-        "S8" => "i8",
-        "S16" => "i16",
-        "S32" => "i32",
-        "S64" => "i64",
-        "Uint2" => "Uint2",
-        "U8" => "u8",
-        "U16" => "u16",
-        "U32" => "u32",
-        "U64" => "u64",
-        "Size" => "Size",
-        "Float2" => "Float2",
-        "Float3" => "Float3",
-        "Float4" => "Float4",
-        "F8" => "f8",
-        "F16" => "f16",
-        "F32" => "f32",
-        "F64" => "f64",
-        "Color" => "Color",
-        "Range" => "Range",
-        "Data" => "Data",
-        "Resource" => "Resource",
-        "String" => "String",
-        "Object" => "Object",
-        "GameObjectRef" => "GameObjectRef",
-        "Bool" => "bool",
-        "Guid" => "Guid",
-        "UserData" => "UserData",
-        "Vec2" => "Vec2",
-        "Vec3" => "Vec3",
-        "Vec4" => "Vec4",
-        "Mat4" => "Mat4",
-        "Quaternion" => "Quaternion",
-        "Point" => "Point",
-        "OBB" => "OBB",
-        "RuntimeType" => "RuntimeType",
-        "AABB" => "AABB",
-        "Sphere" => "Sphere",
-        "RangeI" => "RangeI",
-        "DateTime" => "DateTime",
-        "Capsule" => "Capsule",
-        "Position" => "Position",
-        "Rect" => "Rect",
-        "Frustum" => "Frustum",
-
-        x => {
-            println!("{x}");
-            "_UNKNOWN_"
-        }
+        "System.Int8" => Some("i8"),
+        "System.Int16" => Some("i16"),
+        "System.Int32" => Some("i32"),
+        "System.Int64" => Some("i64"),
+        "System.UInt8" => Some("u8"),
+        "System.UInt16" => Some("u16"),
+        "System.Uint32" => Some("u32"),
+        "System.UInt64" => Some("u64"),
+        "via.Size" => Some("usize"),
+        "via.f8" => Some("f8"),
+        "via.f16" => Some("f16"),
+        "via.f32" => Some("f32"),
+        "via.f64" => Some("f64"),
+        "System.Boolean" => Some("bool"),
+        "System.Guid" => Some("Guid"),
+        "String" => Some("String"),
+        "Range" => Some("Range"),
+        _ => None
     }
 }
