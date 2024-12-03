@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::{fs::File, io::Result, os::unix::fs, path::PathBuf};
 
 use serde::{ser::SerializeStruct, Serialize};
 use uuid::Uuid;
@@ -19,11 +19,8 @@ struct Entry {
 
 impl Entry {
     pub fn print(&self) {
-        println!("GUID: {:?}", uuid::Uuid::from_bytes_le(self.guid));
-        println!("Name: {}", self.name);
-        for c in self.content.iter() {
-            println!("\t {:?}", c);
-        }
+        let json = serde_json::to_string(self).unwrap();
+        println!("{}", json);
     }
 }
 
@@ -78,7 +75,7 @@ impl Msg {
         let type_offset = file.read::<u64>()?;
         let type_name_offset = file.read::<u64>()?;
         let base_entry_offset = file.index;
-        println!("{entry_count}, {type_count}, {lang_count}");
+        //println!("{entry_count}, {type_count}, {lang_count}");
 
         // Read Data
         file.index = data_offset as usize;
@@ -107,9 +104,9 @@ impl Msg {
         file.read::<u64>()?; // idk what this does
 
         file.index += type_offset as usize;
-        let attribute_types = (0..type_count).map(|_| file.read::<u32>().unwrap() as i32).collect::<Vec<i32>>();
+        let attribute_types = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
         file.index += type_name_offset as usize;
-        let type_names = (0..type_count).map(|_| file.read::<u32>().unwrap() as i32).collect::<Vec<i32>>();
+        let type_names = (0..type_count).map(|_| file.read::<u32>().unwrap_or(0) as i32).collect::<Vec<i32>>();
 
 
         let mut entries: Vec<Entry> = Vec::new();
@@ -129,24 +126,23 @@ impl Msg {
             let name = file.read::<u64>()?;
             let attributes = file.read::<u64>()?;
             let content = (0..lang_count).map(|_| {
-                let offset = file.read::<u64>().unwrap() as usize;
-                data.read_utf16(offset - data_offset as usize).unwrap()
+                let offset = file.read::<u64>().unwrap_or(0) as usize;
+                data.read_utf16(offset - data_offset as usize).unwrap_or("".to_string())
             }).collect::<Vec<_>>();
             let name = data.read_utf16(name as usize - data_offset as usize)?;
             entries.push(Entry { name, guid, unkn, hash, attributes, content });
 
-        }
-        
-        for e in entries.iter() {
-            e.print();
         }
         Ok(Msg {
             entries
         })
     }
 
-    pub fn save(&self) {
-        let file = std::fs::File::create("msg.json").unwrap();
+    pub fn save(&self, name: &str) {
+        let mut path = PathBuf::from("outputs").join("msg");
+        let _ = std::fs::create_dir_all(&path);
+        path.push(name);
+        let file: File = std::fs::File::create(path).expect("nah");
         serde_json::to_writer_pretty(&file, &self.entries).unwrap();
     }
 }

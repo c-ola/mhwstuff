@@ -16,7 +16,7 @@ extern crate image;
 use anyhow::*;
 use clap::Parser;
 use msg::Msg;
-use std::fs::{self, write, File};
+use std::fs::{self, write, File, ReadDir};
 use std::io::Write;
 use std::os;
 use std::path::{Path, PathBuf};
@@ -42,7 +42,7 @@ const ITEM_FILES: [&str; 5] = [
     "stm/gamedesign/common/item/autousestatusitemdata.user.3",
 ];
 
-fn dump_files(root_dir: &PathBuf, files: Vec<&str>) -> Result<()> {
+fn dump_files(root_dir: PathBuf, files: Vec<&str>) -> Result<()> {
     for file in files {
         let full_file_path = root_dir.join(file);
         println!("Reading file {full_file_path:?}");
@@ -68,8 +68,42 @@ fn dump_files(root_dir: &PathBuf, files: Vec<&str>) -> Result<()> {
     Ok(())
 }
 
-fn dump_msg() -> Result<()> {
+fn dump_msg(base_dir: PathBuf) -> Result<()> {
+    let files = find_files_with_extension(base_dir, ".msg.23");
+
+    for file in &files {
+        if let Result::Ok(msg) = Msg::new(file.to_str().unwrap().to_string()) {
+            msg.save(file.file_name().unwrap().to_str().expect("This should not have been able to happen"));
+        } else {
+            eprintln!("Could not convert message file {}", file.display());
+        }
+    }
+
     Ok(())
+}
+
+fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf> {
+    let mut results = Vec::new();
+    let mut paths: Vec<PathBuf> = Vec::new();
+    paths.push(base_dir);
+    while let Some(dir) = paths.pop() {
+        if let Result::Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                println!("{path:?}");
+                if path.is_dir() {
+                    paths.push(path);
+                } else {
+                    if let Some(x) = path.file_name().unwrap().to_str() {
+                        if x.ends_with(extension) {
+                            results.push(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    results
 }
 
 fn main() -> Result<()> {
@@ -78,10 +112,12 @@ fn main() -> Result<()> {
     println!("{:?}", args);
 
     if args.dump_all {
-        let _ = dump_files(&PathBuf::from(args.file_name.clone()), ITEM_FILES.to_vec());
+        let base_dir = PathBuf::from(args.file_name.clone());
+        let _ = dump_files(base_dir.clone(), ITEM_FILES.to_vec());
+        let _ = dump_msg(base_dir.clone().join("stm/gamedesign/text/"));
     } else if args.file_name.ends_with("msg.23") {
-        let msg = Msg::new(args.file_name)?;
-        msg.save();
+        let msg = Msg::new(args.file_name.clone())?;
+        msg.save(&args.file_name.clone());
     } else if args.file_name.ends_with("user.3") {
         let nodes = User::new(File::open(&args.file_name)?)?
             .rsz
@@ -92,8 +128,6 @@ fn main() -> Result<()> {
         }
     } else {
         let tex = Tex::new(args.file_name.clone())?;
-        //println!("{tex:?}");
-        //for i in 0..tex.tex_infos.len() {
         let rgba = tex.to_rgba(0)?;
         println!("{}", rgba.data.len());
         let name = format!("{}_{}.png", args.file_name, 0);
@@ -106,7 +140,6 @@ fn main() -> Result<()> {
             image::ExtendedColorType::Rgba8,
         );
     }
-    //}
     println!("Time taken: {} ms", now.elapsed().unwrap().as_millis());
     Ok(())
 }

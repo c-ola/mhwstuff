@@ -1,5 +1,6 @@
+use anyhow::bail;
 use byteorder::{self, LittleEndian, ReadBytesExt};
-use std::{fs::{self}, io::Result};
+use std::{fs::{self}, io::{Error, ErrorKind, Result}};
 
 #[derive(Debug)]
 pub struct BytesFile {
@@ -14,14 +15,23 @@ impl BytesFile {
     }
 
     pub fn read<T: ReadBytesTyped>(&mut self) -> Result<T> {
+        if self.index >= self.data.len() {
+            return Err(Error::new(ErrorKind::InvalidData, "Invalid file Index, greater than data length"))
+        }
         T::read(self)
     }
 
     pub fn readn<T: ReadBytesTyped, const N: usize>(&mut self) -> Result<[T; N]> {
+        if self.index >= self.data.len() {
+            return Err(Error::new(ErrorKind::InvalidData, "Invalid file Index, greater than data length"))
+        }
         T::readn::<N>(self)
     }
 
     pub fn read_bytes_to_vec(&mut self, num: usize) -> Result<Vec<u8>> {
+        if self.index >= self.data.len() {
+            return Err(Error::new(ErrorKind::InvalidData, "Invalid file Index, greater than data length"));
+        }
         let mut data = vec![0; num];
         for i in 0..num {
             let byte = u8::read(self)?;
@@ -31,6 +41,9 @@ impl BytesFile {
     }
 
     pub fn read_utf16(&mut self, from: usize) -> Result<String> {
+        if self.index >= self.data.len() {
+            return Err(Error::new(ErrorKind::InvalidData, "Invalid file Index, greater than data length"));
+        }
         let mut data: Vec<u16> = vec![];
         self.index = from;
         loop {
