@@ -116,8 +116,10 @@ impl Tex {
 
         
         let base = tex_infos[0].offset + mipmap_count as usize * tex_count as usize * 8;
+        println!("base {}", base);
         //let mut decomp_data = Cursor::new(decomp_data);
         //let mut out_buf = Vec::with_capacity(total_size + 32);
+        let mut bytes_read = 0;
         let textures = tex_infos
             .iter()
             .enumerate()
@@ -126,26 +128,31 @@ impl Tex {
                 let out_size = tex_info.len as usize;
                 let in_size = section.compressed_size as usize;
                 println!("{tex_info:?}");
+                println!("{section:?}");
                 data.index = base + section.offset as usize;
                 let in_buf = data.read_bytes_to_vec(in_size).unwrap();
-                //println!("{in_buf:?}");
                 let mut out_buf: Vec<u8> = Vec::new();
                 out_buf.resize(out_size, 0);
+                println!("in_size {}, out_size {}", in_size, out_size);
                 match libdeflater::GDeflateDecompressor::gdeflate_decompress(&in_buf, &mut out_buf) {
-                    Ok(_) => (),
+                    Ok(x) => {
+                        bytes_read += x;
+                        println!("bytes read: {x}");
+                    },
                     Err(e) => panic!("Error in gdeflate decompression: {e}"),
                 }
                 out_buf
-                //buf
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
+
+
+        assert_eq!(bytes_read, decompressed_size, "Bytes read should be the same as the decompressed size");
         let tex = Tex {
             width: width as u32,
             height: height as u32,
             format,
             layout,
             tex_infos,
-            textures: textures.clone(),
+            textures,
         };
         Ok(tex)
     }

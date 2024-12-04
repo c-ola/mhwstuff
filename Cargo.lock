@@ -1249,6 +1249,7 @@ checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 [[package]]
 name = "libdeflate-sys"
 version = "1.22.0"
+source = "git+https://github.com/c-ola/libdeflater.git?branch=master#068e6ae95a1d7924b805c0d98704ec9673f84b58"
 dependencies = [
  "cc",
 ]
@@ -1256,6 +1257,7 @@ dependencies = [
 [[package]]
 name = "libdeflater"
 version = "1.22.0"
+source = "git+https://github.com/c-ola/libdeflater.git?branch=master#068e6ae95a1d7924b805c0d98704ec9673f84b58"
 dependencies = [
  "byteorder",
  "libdeflate-sys",
