@@ -38,4 +38,5 @@ minidump = "0.22"
 md-5 = "0.10"
 sha2 = "0.10"
 uuid = "1.11.0"
-
+#libdeflater = {git = "https://github.com/c-ola/libdeflater.git", branch = "master" }
+libdeflater = {path = "../libdeflater"}

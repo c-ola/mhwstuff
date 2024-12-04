@@ -1247,6 +1247,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
+name = "libdeflate-sys"
+version = "1.22.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "libdeflater"
+version = "1.22.0"
+dependencies = [
+ "byteorder",
+ "libdeflate-sys",
+]
+
+[[package]]
 name = "libfuzzer-sys"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1390,6 +1405,7 @@ dependencies = [
  "glium",
  "half",
  "image",
+ "libdeflater",
  "md-5",
  "minidump",
  "murmur3",

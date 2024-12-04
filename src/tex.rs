@@ -3,6 +3,10 @@ use crate::compression::{
     Bc1Unorm, Bc3Unorm, Bc4Unorm, Bc5Unorm, Bc7Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec
 };
 
+use futures::io::Cursor;
+use futures::AsyncReadExt;
+use libdeflater::*;
+
 use std::{fmt, io::Result};
 
 pub struct RGBAImage {
@@ -77,32 +81,62 @@ impl Tex {
         println!("x0: {_x:?}");
 
         let mut tex_infos = Vec::new();
-
+        
+        let mut decompressed_size = 0; 
         for i in 0..tex_count {
             for _j in 0..mipmap_count {
                 println!("texture_{i}-{_j}");
                 let offset = data.read::<u64>()? as usize;
                 let pitch = data.read::<u32>()? as usize;
                 let len = data.read::<u32>()? as usize;
+                decompressed_size += len;
 
                 tex_infos.push(TexInfo { offset, pitch, len });
                 println!("{}", tex_infos[_j as usize]);
             }
         }
 
+        
+        #[derive(Debug)]
+        struct GDefSection {
+            compressed_size: u32,
+            offset: u32,
+        }
+        let mut total_size = 0;
+        let gdef_sections = (0..mipmap_count * tex_count).into_iter().map(|_| {
+            let compressed_size = data.read::<u32>()?;
+            let offset = data.read::<u32>()?;
+            total_size += compressed_size;
+            Ok(GDefSection {
+                compressed_size,
+                offset
+            })
+        }).collect::<Result<Vec<_>>>()?;
+
+
+        
+        let base = tex_infos[0].offset + mipmap_count as usize * tex_count as usize * 8;
+        //let mut decomp_data = Cursor::new(decomp_data);
+        //let mut out_buf = Vec::with_capacity(total_size + 32);
         let textures = tex_infos
-            .clone()
-            .into_iter()
-            .map(|tex_info| {
+            .iter()
+            .enumerate()
+            .map(|(i, tex_info)| {
+                let section = &gdef_sections[i];
+                let out_size = tex_info.len as usize;
+                let in_size = section.compressed_size as usize;
                 println!("{tex_info:?}");
-                data.seek(tex_info.offset);
-                let mut buf: Vec<u8> = Vec::new();
-                let _rows = tex_info.len/tex_info.pitch;
-                //for _ in 0..rows {
-                buf.extend(data.read_bytes_to_vec(tex_info.len).unwrap());
-                    //buf.extend(vec![0; tex_info.pitch])
-                //}
-                buf
+                data.index = base + section.offset as usize;
+                let in_buf = data.read_bytes_to_vec(in_size).unwrap();
+                //println!("{in_buf:?}");
+                let mut out_buf: Vec<u8> = Vec::new();
+                out_buf.resize(out_size, 0);
+                match libdeflater::GDeflateDecompressor::gdeflate_decompress(&in_buf, &mut out_buf) {
+                    Ok(_) => (),
+                    Err(e) => panic!("Error in gdeflate decompression: {e}"),
+                }
+                out_buf
+                //buf
             })
             .collect::<Vec<_>>();
         let tex = Tex {
