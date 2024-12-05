@@ -5,11 +5,13 @@ use std::{
 use crate::file_ext::*;
 
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
+use half::vec;
+use serde::{ser::{SerializeMap, SerializeSeq, SerializeStruct}, Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::TypeDescriptor;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RszField {
     align: u32,
     array: bool,
@@ -21,7 +23,7 @@ pub struct RszField {
 }
 
 // enums to hold values in a lightweight Rsz Struct
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub enum RszType {
     Int8(i8),
     Int16(i16),
@@ -33,12 +35,19 @@ pub enum RszType {
     UInt64(u64),
     Bool(bool),
     String(String),
+    F8(u8),
+    F16(u16),
+    F32(f32),
+    F64(f64),
     Guid([u8; 16]),
     Array(Vec<RszType>),
-    Object(RszValue),
+    Object(RszStruct<RszField>, u32),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RszValueWithInfo<'a>(&'a RszValue, &'a Vec<RszValue>);
+pub struct RszTypeWithInfo<'a>(&'a RszType, &'a Vec<RszValue>);
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct RszStruct<T> {
     name: String,
     crc: u32,
@@ -48,11 +57,147 @@ pub struct RszStruct<T> {
 
 pub type RszValue = RszStruct<RszType>;
 
-#[derive(Debug)]
-pub struct RszDump {
-    hash_map: HashMap<u32, RszStruct<RszField>>,
-    name_map: HashMap<String, u32>,
+
+#[derive(Debug, Clone)]
+pub struct DeRsz {
+    pub roots: Vec<RszValue>,
+    pub structs: Vec<RszValue>,
 }
+
+impl<'a> Serialize for DeRsz {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let mut state = serializer.serialize_struct("Rsz", self.roots.len())?;
+        let context = &self.structs;
+        for root in &self.roots { // do this to wrap in with context
+            let val_with_context = RszValueWithInfo(&root, &context);
+            state.serialize_field("struct", &val_with_context)?;
+        }
+        state.end()
+    }
+}
+
+impl<'a> Serialize for RszValueWithInfo<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+                
+            let r#struct = self.0;
+            let context = self.1;
+            let struct_info = RszDump::crc_map().get(&r#struct.hash).expect("Could not find struct in dump");
+            let mut state = serializer.serialize_struct("RszValue", r#struct.fields.len())?;
+            for i in 0..struct_info.fields.len() {
+                let field_value = &r#struct.fields[i];
+                let field_info = &struct_info.fields[i];
+                let name = &field_info.name;
+                let serialize_context = RszTypeWithInfo(field_value, context);
+                state.serialize_field(name, &serialize_context)?;
+            }
+            state.end()
+        
+    }
+}
+
+impl<'a> Serialize for RszTypeWithInfo<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer 
+    {
+        let rsz_type = self.0;
+        let structs = self.1;
+        use RszType::*;
+        return match rsz_type {
+            Int8(v) => serializer.serialize_i8(*v), 
+            Int16(v) => serializer.serialize_i16(*v), 
+            Int32(v) => serializer.serialize_i32(*v), 
+            Int64(v) => serializer.serialize_i64(*v), 
+            UInt8(v) => serializer.serialize_u8(*v), 
+            UInt16(v) => serializer.serialize_u16(*v), 
+            UInt32(v) => serializer.serialize_u32(*v), 
+            UInt64(v) => serializer.serialize_u64(*v), 
+            Bool(v) => serializer.serialize_bool(*v),
+            String(v) => serializer.serialize_str(v),
+            F8(v) => serializer.serialize_u8(*v), 
+            F16(v) => serializer.serialize_u16(*v), 
+            F32(v) => serializer.serialize_f32(*v), 
+            F64(v) => serializer.serialize_f64(*v), 
+            Guid(id) => {
+                let id = Uuid::from_bytes_le(*id);
+                serializer.serialize_str(&id.to_string().as_str())
+            },
+            Object(info, ptr) => {
+                let struct_derefed = &structs.get(*ptr as usize).expect("Struct not in context");
+                //println!("{:?}", struct_derefed);
+                let val = RszValueWithInfo(struct_derefed, structs);
+                val.serialize(serializer)
+                //serializer.serialize_str("NOT IMPLEMENTED")
+            },
+            Array(vec_of_types) => {
+                //let struct_derefed = &structs.get(*ptr as usize).expect("Struct not in context");
+                let mut state = serializer.serialize_seq(Some(vec_of_types.len()))?;
+                for r#type in vec_of_types {
+                    let type_with_context = RszTypeWithInfo(r#type, structs);
+                    state.serialize_element(&type_with_context)?;
+                }
+                state.end()
+                //serializer.serialize_str("NOT IMPLEMENTED")
+
+            }
+            _ => serializer.serialize_str("NOT IMPLEMENTED")
+        }
+    
+    }
+}
+
+/*impl RszType {
+    fn serialize<S>(&self, serializer: S, context: &DeRsz) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer
+    {
+        let structs = context.structs;
+        use RszType::*;
+        match self {
+            Int8(v) => serializer.seria(name, &v)?, 
+            Int16(v) => state.serialize_field(name, &v)?,
+            Int32(v) => state.serialize_field(name, &v)?,
+            Int64(v) => state.serialize_field(name, &v)?,
+            UInt8(v) => state.serialize_field(name, &v)?, 
+            UInt16(v) => state.serialize_field(name, &v)?,
+            UInt32(v) => state.serialize_field(name, &v)?,
+            UInt64(v) => state.serialize_field(name, &v)?,
+            Guid(id) => {
+                let id = Uuid::from_bytes_le(*id);
+                state.serialize_field(name, &id.to_string())?;
+            },
+            _ => ()
+        }
+    }
+}*/
+
+impl Serialize for RszValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let mut state = serializer.serialize_struct("RszStruct", self.fields.len())?;
+        use RszType::*;
+        let base_struct = RszDump::crc_map().get(&self.hash).expect(
+            "Could not find hash for struct in map"
+        );
+
+        
+        for i in 0..base_struct.fields.len() {
+            let r#type = &self.fields[i];
+            let field_info = &base_struct.fields[i];
+            let name = &field_info.name;
+
+        }
+        state.end()
+    }
+}
+
+
+pub struct RszDump;
 
 impl RszDump {
     pub fn parse_struct<'a, F: 'a + Read + Seek>(
@@ -66,7 +211,9 @@ impl RszDump {
         let mut field_values = Vec::new();
         for field in &struct_type.fields {
             if field.array {
-                data.seek_align_up(field.align.into())?;
+                data.seek_align_up(4).with_context(||{
+                    format!("{:?}", field)
+                })?;
                 let count = data.read_u32()?;
                 let vals = (0..count).map(|_| {
                     RszDump::field_to_type(&mut data, field)
@@ -87,8 +234,10 @@ impl RszDump {
     }
 
     fn field_to_type<F: Read + Seek>(mut data: &mut F, field: &RszField) -> anyhow::Result<RszType> {
-        data.seek_align_up(field.align.into())?;
-        let mut r#type = match field.r#type.as_str() {
+        data.seek_align_up(field.align.into()).with_context(|| {
+            format!("{:?}", field)
+        })?;
+        let r#type = match field.r#type.as_str() {
             "S8" => RszType::Int8(data.read_i8()?),
             "S16" => RszType::Int16(data.read_i16()?),
             "S32" => RszType::Int32(data.read_i32()?),
@@ -97,6 +246,10 @@ impl RszDump {
             "U16" => RszType::UInt16(data.read_u16()?),
             "U32" => RszType::UInt32(data.read_u32()?),
             "U64" => RszType::UInt64(data.read_u64()?),
+            "F8" => RszType::F8(data.read_u8()?),
+            "F16" => RszType::F16(data.read_u16()?),
+            "F32" => RszType::F32(data.read_f32()?),
+            "F64" => RszType::F64(data.read_f64()?),
             "Guid" => {
                 let mut buf = [0; 16];
                 for i in 0..16 {
@@ -107,19 +260,20 @@ impl RszDump {
             "Bool" => RszType::Bool(data.read_bool()?),
             "String" => RszType::String(data.read_u8str()?),
             "Object" => {
-                if let Some(mapped_crc) = RszDump::name_map().get(&field.original_type) {
+                let mut x = None;
+                 if let Some(mapped_crc) = RszDump::name_map().get(&field.original_type) {
                     if let Some(r#struct) = RszDump::crc_map().get(&mapped_crc) {
-                        println!("{:?}", r#struct);
+                        //println!("{:?}", r#struct);
                         //let values = self.parse_struct(&mut data, TypeDescriptor{crc: r#struct.crc, hash: r#struct.hash})?;
                         //RszType::Object(values)
-                        RszType::Int8(0)
+                        x = Some(RszType::Object(r#struct.clone(), data.read_u32()?))
                     } else {
                         panic!("Name crc not in hash map {:X}", mapped_crc);
                     };
                 } else {
                     panic!("field original type {:?} not in dump map", field);
-                }
-                RszType::Int8(0)
+                };
+                x.unwrap()
             }
 
             _ => panic!("Type {:?} does not have FromField implemented", field.r#type),

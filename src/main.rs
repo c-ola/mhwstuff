@@ -3,9 +3,7 @@ mod bitfield;
 mod byte_reader;
 mod compression;
 mod file_ext;
-mod hash;
 mod msg;
-mod pak;
 mod rsz;
 mod suffix;
 mod tex;
@@ -16,10 +14,8 @@ extern crate image;
 use anyhow::*;
 use clap::Parser;
 use msg::Msg;
-use rsz::RszDump;
 use std::fs::{self, write, File, ReadDir};
 use std::io::Write;
-use std::os;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tex::Tex;
@@ -122,11 +118,21 @@ fn main() -> Result<()> {
         let msg = Msg::new(args.file_name.clone())?;
         msg.save(&args.file_name.clone());
     } else if args.file_name.ends_with("user.3") {
-        let nodes = User::new(File::open(&args.file_name)?)?
+        let re_dump = User::new(File::open(&args.file_name)?)?
             .rsz
             .deserializev2()
             .unwrap();
-        println!("{}", serde_json::to_string_pretty(&nodes)?);
+
+        let file_path = Path::new(&args.file_name);
+        let mut output_path = PathBuf::from("outputs").join("user");
+        output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+
+        println!("Trying to save to {:?}", &output_path);
+        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+        let f = std::fs::File::create(&output_path).expect("Error Creating File");
+        serde_json::to_writer_pretty(f, &re_dump)?;
+        println!("Saved file");
+        //println!("{}", serde_json::to_string_pretty(&re_dump)?);
     } else {
         let tex = Tex::new(args.file_name.clone())?;
         let rgba = tex.to_rgba(0)?;
