@@ -204,7 +204,7 @@ impl Rsz {
                     &buffer[0..read]
                 )
             })?;
-            println!("{hash:08x}, {crc:08x}");
+            //println!("{hash:08x}, {crc:08x}");
             let version = if type_info.versions.is_empty() {
                 version_hint.unwrap_or(0)
             } else {
