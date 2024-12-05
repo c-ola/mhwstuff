@@ -16,6 +16,7 @@ extern crate image;
 use anyhow::*;
 use clap::Parser;
 use msg::Msg;
+use rsz::RszDump;
 use std::fs::{self, write, File, ReadDir};
 use std::io::Write;
 use std::os;

@@ -2,10 +2,12 @@ mod common;
 mod item;
 mod skill;
 mod enums;
+mod dersz;
 
 pub use common::*;
 pub use item::*;
 pub use skill::*;
+pub use dersz::*;
 
 use crate::file_ext::*;
 use crate::hash::*;
@@ -172,7 +174,7 @@ impl Rsz {
 
         let mut data = vec![];
         file.read_to_end(&mut data)?;
-
+        
         Ok(Rsz {
             roots,
             extern_slots,
@@ -193,6 +195,10 @@ impl Rsz {
                 continue;
             }
 
+            println!("{hash:08x}, {crc:08x}");
+            let something = RszDump::parse_struct(cursor.clone(), TypeDescriptor{hash, crc})?;
+            println!("{something:?}");
+            
             let pos = cursor.tell().unwrap();
             let type_info = RSZ_TYPE_MAP.get(&hash).with_context(|| {
                 let mut buffer = [0; 0x100];
@@ -204,7 +210,6 @@ impl Rsz {
                     &buffer[0..read]
                 )
             })?;
-            //println!("{hash:08x}, {crc:08x}");
             let version = if type_info.versions.is_empty() {
                 version_hint.unwrap_or(0)
             } else {

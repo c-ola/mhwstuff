@@ -1,0 +1,36 @@
+Dynamic RSZ Deserializer
+
+
+Steps:
+
+Load rszdump to HashMap or just plain json
+needs to index the map with both original type and 
+
+RSZ data:
+    provide file bytes
+    read file header
+    get roots
+    get type descriptors
+    get external slots info (link to other files)
+    rest is data
+
+RSZ data to json
+    read whole file into RszDump maps
+    use type info crc or hash to find the struct
+    loop throught the fields and read to blanket struct
+
+struct RszField {
+    align: u8,
+    array: bool
+    name: String,
+    native: bool, // almost always false, except for some via types
+    original_type: String, //should also be used to index other structs
+    size: u8,
+    type: String, //basic type of the struct
+}
+
+
+
+
+
+
