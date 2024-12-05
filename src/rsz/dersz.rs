@@ -5,7 +5,7 @@ use std::{
 use crate::file_ext::*;
 
 use anyhow::Context;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::TypeDescriptor;
 
@@ -21,7 +21,7 @@ pub struct RszField {
 }
 
 // enums to hold values in a lightweight Rsz Struct
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum RszType {
     Int8(i8),
     Int16(i16),
@@ -38,7 +38,7 @@ pub enum RszType {
     Object(RszValue),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RszStruct<T> {
     name: String,
     crc: u32,
@@ -65,8 +65,17 @@ impl RszDump {
 
         let mut field_values = Vec::new();
         for field in &struct_type.fields {
-            let r#type = RszDump::field_to_type(&mut data, field)?;
-            field_values.push(r#type);
+            if field.array {
+                data.seek_align_up(field.align.into())?;
+                let count = data.read_u32()?;
+                let vals = (0..count).map(|_| {
+                    RszDump::field_to_type(&mut data, field)
+                }).collect::<anyhow::Result<Vec<RszType>>>()?;
+                field_values.push(RszType::Array(vals));
+            } else {
+                let r#type = RszDump::field_to_type(&mut data, field)?;
+                field_values.push(r#type);
+            }
         }
 
         Ok(RszValue {
@@ -89,7 +98,11 @@ impl RszDump {
             "U32" => RszType::UInt32(data.read_u32()?),
             "U64" => RszType::UInt64(data.read_u64()?),
             "Guid" => {
-                RszType::Guid([0; 16]) // make it read
+                let mut buf = [0; 16];
+                for i in 0..16 {
+                    buf[i] = data.read_u8()?;
+                }
+                RszType::Guid(buf) // make it read
             },
             "Bool" => RszType::Bool(data.read_bool()?),
             "String" => RszType::String(data.read_u8str()?),
@@ -113,7 +126,7 @@ impl RszDump {
             // maybe get enum
         };
         if field.array {
-            r#type = RszType::Array(Vec::new())
+            //r#type = RszType::Array(Vec::new())
         }
         Ok(r#type)
     }

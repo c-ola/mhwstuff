@@ -183,6 +183,36 @@ impl Rsz {
         })
     }
 
+
+    pub fn deserializev2(&self) -> Result<Vec<RszValue>> {
+        let mut node_buf: Vec<NodeSlot> = vec![NodeSlot::None];
+        let mut cursor = Cursor::new(&self.data);
+        let mut rszstruct_buf: Vec<RszValue> = Vec::new();
+
+        for (i, &TypeDescriptor { hash, crc }) in self.type_descriptors.iter().enumerate().skip(1) {
+            if let Some(slot_extern) = self.extern_slots.get(&u32::try_from(i)?) {
+                if slot_extern.hash != hash {
+                    bail!("Extern hash mismatch")
+                }
+                node_buf.push(NodeSlot::Extern(slot_extern.path.clone()));
+                continue;
+            }
+
+            println!("{hash:08x}, {crc:08x}");
+            let something = RszDump::parse_struct(cursor.clone(), TypeDescriptor{hash, crc})?;
+            //println!("{something:?}");
+            rszstruct_buf.push(something);
+        }
+        let mut leftover = vec![];
+        cursor.read_to_end(&mut leftover)?;
+        if !leftover.is_empty() {
+            //bail!("Left over data {leftover:?}");
+            eprintln!("Left over data {leftover:?}");
+        }
+
+        Ok(rszstruct_buf)
+    }
+
     pub fn deserialize(&self, version_hint: Option<u32>) -> Result<Vec<AnyRsz>> {
         let mut node_buf: Vec<NodeSlot> = vec![NodeSlot::None];
         let mut cursor = Cursor::new(&self.data);
@@ -195,10 +225,6 @@ impl Rsz {
                 continue;
             }
 
-            println!("{hash:08x}, {crc:08x}");
-            let something = RszDump::parse_struct(cursor.clone(), TypeDescriptor{hash, crc})?;
-            println!("{something:?}");
-            
             let pos = cursor.tell().unwrap();
             let type_info = RSZ_TYPE_MAP.get(&hash).with_context(|| {
                 let mut buffer = [0; 0x100];

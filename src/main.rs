@@ -40,12 +40,13 @@ fn dump_files(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> Result<()> {
         println!("Reading file {full_file_path:?}");
         let nodes = User::new(File::open(full_file_path)?)?
             .rsz
-            .deserialize(None)
+            .deserializev2()
             .expect("Could not read file");
-        let json = nodes
-            .into_iter()
-            .map(|x| x.to_json().unwrap())
-            .collect::<String>();
+        let json = serde_json::to_string_pretty(&nodes)?; 
+            //nodes
+            //.into_iter()
+            //.map(|x| x.to_json().unwrap())
+            //.collect::<String>();
 
         let file_path = Path::new(file);
         let mut output_path = PathBuf::from("outputs").join(subdir);
@@ -123,11 +124,9 @@ fn main() -> Result<()> {
     } else if args.file_name.ends_with("user.3") {
         let nodes = User::new(File::open(&args.file_name)?)?
             .rsz
-            .deserialize(Some(0))
+            .deserializev2()
             .unwrap();
-        for node in nodes {
-            println!("{}", node.to_json().unwrap());
-        }
+        println!("{}", serde_json::to_string_pretty(&nodes)?);
     } else {
         let tex = Tex::new(args.file_name.clone())?;
         let rgba = tex.to_rgba(0)?;
