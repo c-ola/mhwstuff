@@ -11,11 +11,11 @@ mod user;
 
 extern crate image;
 
-use anyhow::*;
+use std::io::*;
 use clap::Parser;
 use msg::Msg;
-use std::fs::{self, write, File, ReadDir};
-use std::io::Write;
+use std::fs::{self, read_to_string, write, File, ReadDir};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tex::Tex;
@@ -24,35 +24,50 @@ use user::User;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
-    file_name: String,
-    #[arg(short, long, default_value_t = false)]
-    dump_all: bool,
+    #[arg(short('f'), long)]
+    file_name: Option<String>,
+    
+    #[arg(short('r'), long)]
+    root_dir: Option<String>,
+
+    #[arg(short('l'), long)]
+    list: Option<String>, 
+
+    #[arg(short('o'), long, default_value_t = String::from("outputs"))]
+    out_dir: String,
+
+    #[arg(short('u'), long, default_value_t = false)]
+    dump_user: bool,
+    
+    #[arg(short('m'), long, default_value_t = false)]
+    dump_msg: bool,
 }
 
-fn dump_files(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> Result<()> {
+fn dump_users(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> anyhow::Result<()> {
     for file in files {
         let full_file_path = root_dir.join(file);
         println!("Reading file {full_file_path:?}");
-        let nodes = User::new(File::open(full_file_path)?)?
-            .rsz
-            .deserializev2()
-            .expect("Could not read file");
-        let json = serde_json::to_string_pretty(&nodes)?; 
-            //nodes
-            //.into_iter()
-            //.map(|x| x.to_json().unwrap())
-            //.collect::<String>();
+        let rsz = User::new(File::open(full_file_path)?)?.rsz;
+        let res = rsz.deserializev2();
+        match res {
+            Ok(nodes) => {
+                let file_path = Path::new(file);
+                let mut output_path = PathBuf::from("outputs").join(subdir);
+                output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
 
-        let file_path = Path::new(file);
-        let mut output_path = PathBuf::from("outputs").join(subdir);
-        output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+                let json = serde_json::to_string_pretty(&nodes)?; 
+                println!("Trying to save to {:?}", &output_path);
+                let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+                let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
+                f.write_all(json.as_bytes())?;
+                println!("Saved file");
+            },
+            Err(e) => {
+                eprintln!("{e:?}");
+                continue
+            }
 
-        println!("Trying to save to {:?}", &output_path);
-        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
-        let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
-        f.write_all(json.as_bytes())?;
-        println!("Saved file");
+        }
     }
     Ok(())
 }
@@ -95,57 +110,83 @@ fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf>
     results
 }
 
-fn main() -> Result<()> {
+fn dump_all(root_dir: PathBuf, list_file: Option<String>, do_dump_user: bool, do_dump_msg: bool) -> anyhow::Result<()> {
+    if do_dump_user {
+        match list_file {
+            None => {
+                let _ = dump_users(root_dir.clone(), vec![
+                    "stm/gamedesign/common/item/itemdata.user.3",
+                    "stm/gamedesign/common/item/fixitems.user.3",
+                    "stm/gamedesign/common/item/itemrecipe.user.3",
+                    "stm/gamedesign/common/item/autousehealthitemdata.user.3",
+                    "stm/gamedesign/common/item/autousestatusitemdata.user.3",
+                ], "items");
+                let _ = dump_users(root_dir.clone(), vec![
+                    "stm/gamedesign/common/equip/skilldata.user.3",
+                    "stm/gamedesign/common/equip/skillcommondata.user.3",
+                ], "skills");
+            },
+            Some(file_name) => {
+                let list = read_to_string(&file_name).expect(format!("Could not open file {file_name}").as_str());
+                let list = list.lines().collect();
+                dump_users(root_dir.clone(), list, "dump")?;
+            }
+        }
+    }
+    if do_dump_msg {
+        let _ = dump_msg(root_dir.join("stm/gamedesign/"));
+    }
+    Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
     let now = SystemTime::now();
     let args = Args::parse();
     println!("{:?}", args);
 
-    if args.dump_all {
-        let base_dir = PathBuf::from(args.file_name.clone());
-        let _ = dump_files(base_dir.clone(), vec![
-            "stm/gamedesign/common/item/itemdata.user.3",
-            "stm/gamedesign/common/item/fixitems.user.3",
-            "stm/gamedesign/common/item/itemrecipe.user.3",
-            "stm/gamedesign/common/item/autousehealthitemdata.user.3",
-            "stm/gamedesign/common/item/autousestatusitemdata.user.3",
-        ], "items");
-        let _ = dump_files(base_dir.clone(), vec![
-            "stm/gamedesign/common/equip/skilldata.user.3",
-            "stm/gamedesign/common/equip/skillcommondata.user.3",
-        ], "skills");
-        let _ = dump_msg(base_dir.clone().join("stm/gamedesign/"));
-    } else if args.file_name.ends_with("msg.23") {
-        let msg = Msg::new(args.file_name.clone())?;
-        msg.save(&args.file_name.clone());
-    } else if args.file_name.ends_with("user.3") {
-        let re_dump = User::new(File::open(&args.file_name)?)?
-            .rsz
-            .deserializev2()
-            .unwrap();
 
-        let file_path = Path::new(&args.file_name);
-        let mut output_path = PathBuf::from("outputs").join("user");
-        output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+    if args.dump_msg || args.dump_user  {
+        if let Some(dir) = args.root_dir {
+            let base_dir = PathBuf::from(dir.clone());
+            dump_all(base_dir, args.list, args.dump_user, args.dump_msg)?;
+        } else {
+            println!("Please provide a directory to natives folder when using dump all");
+        }
+        return Ok(())
+    } else if let Some(file_name) = args.file_name {
+        if file_name.ends_with("msg.23") {
+            let msg = Msg::new(file_name.clone())?;
+            msg.save(&file_name.clone());
+        } else if file_name.ends_with("user.3") {
+            let re_dump = User::new(File::open(&file_name)?)?
+                .rsz
+                .deserializev2()
+                .unwrap();
 
-        println!("Trying to save to {:?}", &output_path);
-        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
-        let f = std::fs::File::create(&output_path).expect("Error Creating File");
-        serde_json::to_writer_pretty(f, &re_dump)?;
-        println!("Saved file");
-        //println!("{}", serde_json::to_string_pretty(&re_dump)?);
-    } else {
-        let tex = Tex::new(args.file_name.clone())?;
-        let rgba = tex.to_rgba(0)?;
-        println!("{}", rgba.data.len());
-        let name = format!("{}_{}.png", args.file_name, 0);
-        println!("saving to {name}");
-        let _ = image::save_buffer(
-            &Path::new(&name),
-            &rgba.data,
-            rgba.width,
-            rgba.height,
-            image::ExtendedColorType::Rgba8,
-        );
+            let file_path = Path::new(&file_name);
+            let mut output_path = PathBuf::from("outputs").join("user");
+            output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+
+            println!("Trying to save to {:?}", &output_path);
+            let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+            let f = std::fs::File::create(&output_path).expect("Error Creating File");
+            serde_json::to_writer_pretty(f, &re_dump)?;
+            println!("Saved file");
+            //println!("{}", serde_json::to_string_pretty(&re_dump)?);
+        } else {
+            let tex = Tex::new(file_name.clone())?;
+            let rgba = tex.to_rgba(0)?;
+            println!("{}", rgba.data.len());
+            let name = format!("{}_{}.png", file_name, 0);
+            println!("saving to {name}");
+            let _ = image::save_buffer(
+                &Path::new(&name),
+                &rgba.data,
+                rgba.width,
+                rgba.height,
+                image::ExtendedColorType::Rgba8,
+            );
+        }
     }
     println!("Time taken: {} ms", now.elapsed().unwrap().as_millis());
     Ok(())

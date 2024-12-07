@@ -3,8 +3,6 @@ use crate::compression::{
     Bc1Unorm, Bc3Unorm, Bc4Unorm, Bc5Unorm, Bc7Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec
 };
 
-use futures::io::Cursor;
-use futures::AsyncReadExt;
 use libdeflater::*;
 
 use std::{fmt, io::Result};
