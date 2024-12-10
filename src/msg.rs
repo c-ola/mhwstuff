@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File, io::Result, path::PathBuf};
 
-use serde::{ser::{SerializeMap, SerializeStruct}, Serialize};
+use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -43,11 +43,11 @@ pub struct MsgHeader {
 impl Msg {
     pub fn new(file_name: String) -> Result<Msg> {
         let mut file = BytesFile::new(file_name)?;
-        let version = file.read::<u32>()?;
-        let magic = file.readn::<u8, 4>()?;
-        let header_offset = file.read::<u64>()?;
+        let _version = file.read::<u32>()?;
+        let _magic = file.readn::<u8, 4>()?;
+        let _header_offset = file.read::<u64>()?;
         let entry_count = file.read::<u32>()?;
-        let type_count = file.read::<u32>()?;
+        let _type_count = file.read::<u32>()?;
         let lang_count = file.read::<u32>()?;
         file.read::<u32>()?; // null
         let data_offset = file.read::<u64>()?;
@@ -81,7 +81,7 @@ impl Msg {
         // PUT A CHECK HERE FOR IF ITS A VALID FILE OR NOT
 
         file.index = lang_offset as usize;
-        let languages = (0..lang_count).map(|_| file.read::<u32>()).collect::<Result<Vec<_>>>()?;
+        let _languages = (0..lang_count).map(|_| file.read::<u32>()).collect::<Result<Vec<_>>>()?;
 
         file.index = p_offset as usize;
         file.read::<u64>()?; // idk what this does

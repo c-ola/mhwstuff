@@ -8,14 +8,15 @@ mod rsz;
 mod suffix;
 mod tex;
 mod user;
+mod dersz;
 
 extern crate image;
 
 use std::io::*;
 use clap::Parser;
 use msg::Msg;
-use std::fs::{self, read_to_string, write, File, ReadDir};
-use std::io::{Read, Write};
+use std::fs::{self, read_to_string, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tex::Tex;

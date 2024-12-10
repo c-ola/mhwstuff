@@ -1,14 +1,14 @@
 use std::{
-    collections::HashMap, fs::read_to_string, io::{BufReader, ErrorKind, Read, Seek}, path::PathBuf, sync::OnceLock
+    collections::HashMap, io::{BufReader, Read, Seek}, path::PathBuf, sync::OnceLock
 };
 
 use crate::file_ext::*;
 
 use anyhow::{anyhow, Context};
 use nalgebra_glm::{Mat4x4, Vec2, Vec3, Vec4};
-use serde::{de::value::UnitDeserializer, ser::{SerializeMap, SerializeSeq, SerializeStruct}, Deserialize, Serialize};
+use serde::{ser::{SerializeSeq, SerializeStruct}, Deserialize, Serialize};
 use uuid::Uuid;
-use super::TypeDescriptor;
+use crate::rsz::TypeDescriptor;
 
 // enums to hold values in a lightweight Rsz Struct
 #[derive(Debug, Clone)]
@@ -83,8 +83,8 @@ impl RszType {
             "String" => RszType::String(data.read_u8str()?),
             "Object" => {
                 let x;
-                if let Some(mapped_crc) = RszDump::name_map().get(&field.original_type) {
-                    if let Some(r#struct) = RszDump::crc_map().get(&mapped_crc) {
+                if let Some(mapped_crc) = RszMaps::map().name_map.get(&field.original_type) {
+                    if let Some(r#struct) = RszMaps::map().rsz_map.get(&mapped_crc) {
                         x = RszType::Object(r#struct.clone(), data.read_u32()?)
                     } else {
                         panic!("Name crc not in hash map {:X}", mapped_crc);
@@ -254,7 +254,7 @@ impl<'a> Serialize for RszValueWithInfo<'a> {
 
             let r#struct = self.0;
             let context = self.1;
-            let struct_info = RszDump::crc_map().get(&r#struct.hash).expect("Could not find struct in dump");
+            let struct_info = RszMaps::map().rsz_map.get(&r#struct.hash).expect("Could not find struct in dump");
             let mut state = serializer.serialize_struct("RszValue", r#struct.fields.len())?;
             for i in 0..struct_info.fields.len() {
                 let field_value = &r#struct.fields[i];
@@ -269,6 +269,87 @@ impl<'a> Serialize for RszValueWithInfo<'a> {
 }
 
 
+struct RszMaps {
+    rsz_map:  HashMap<u32, RszStruct<RszField>>,
+    name_map: HashMap<String, u32>,
+    enum_map: HashMap<String, HashMap<String, String>>,
+}
+
+impl RszMaps {
+    fn map() -> &'static RszMaps {
+        #[derive(Debug, Clone, Deserialize)]
+        pub struct RszStructTemp<T> {
+            name: String,
+            crc: String,
+            fields: Vec<T>,
+        }
+
+        static MAPS: OnceLock<RszMaps> = OnceLock::new();
+
+        MAPS.get_or_init(||{
+            let mut rsz_map = HashMap::new();
+            let mut name_map = HashMap::new();
+            let file = std::fs::File::open("rszmhwilds.json").unwrap();
+            let reader = BufReader::new(file);
+            let stream = serde_json::Deserializer::from_reader(reader).into_iter::<serde_json::Value>();
+
+            //let mut structs: Vec<RszStruct<RszField>> = Vec::new();
+            for value in stream {
+                match value {
+                    Ok(json_value) => {
+                        if let serde_json::Value::Object(map) = json_value {
+                            // This is where each struct is actually parsed
+                            for (_key, value) in map {
+                                //println!("{_key:?}, {value:?}");
+                                let mut rsz_struct: RszStructTemp<RszField> =
+                                                    serde_json::from_value(value).expect("Could not parse struct");
+
+                                for field in &mut rsz_struct.fields {
+                                    if field.original_type == "ace.user_data.ExcelUserData.cData[]" {
+                                        field.original_type = rsz_struct.name.clone() + ".cData[]"
+                                    }
+                                }
+                                let rsz_struct: RszStruct<RszField> = RszStruct {
+                                    name: rsz_struct.name,
+                                    crc: u32::from_str_radix(&rsz_struct.crc, 16).unwrap(),
+                                    hash: u32::from_str_radix(&_key, 16).unwrap(),
+                                    fields: rsz_struct.fields
+                                };
+                                name_map.insert(rsz_struct.name.clone(), rsz_struct.hash);
+                                rsz_map.insert(rsz_struct.hash, rsz_struct);
+                            }
+                        } else {
+                            println!("Expected a JSON object!");
+                        }
+                    }
+                    Err(e) => eprintln!("Error parsing JSON: {}", e),
+                }
+            }
+
+            let json_data = std::fs::File::open("gen/enums.json").unwrap();
+            let enum_map: HashMap<String, HashMap<String, String>> = serde_json::from_reader(&json_data).unwrap();
+            RszMaps{
+                rsz_map,
+                name_map,
+                enum_map
+            }
+
+        })
+    }
+}
+
+fn get_enum_name(name: String, value: String) -> Option<String> {
+    let name = name.replace("[]", "").replace("_Serializable", "_Fixed");
+    if let Some(map) = RszMaps::map().enum_map.get(&name) {
+        if let Some(value) = map.get(&value){
+            Some(value.to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
 
 pub struct RszDump;
 
@@ -277,7 +358,7 @@ impl RszDump {
         mut data: F,
         type_descriptor: TypeDescriptor,
     ) -> anyhow::Result<RszValue> {
-        let struct_type = RszDump::crc_map()
+        let struct_type = RszMaps::map().rsz_map
             .get(&type_descriptor.hash)
             .with_context(|| format!("Unexpected Type: not in Rsz Dump"))?;
 
@@ -305,100 +386,7 @@ impl RszDump {
             fields: field_values,
         })
     }
-
-    fn crc_map() -> &'static HashMap<u32, RszStruct<RszField>> {
-        #[derive(Debug, Clone, Deserialize)]
-        pub struct RszStructTemp<T> {
-            name: String,
-            crc: String,
-            fields: Vec<T>,
-        }
-        static HASHMAP: OnceLock<HashMap<u32, RszStruct<RszField>>> = OnceLock::new();
-        HASHMAP.get_or_init(|| {
-            let mut m = HashMap::new();
-            let file = std::fs::File::open("rszmhwilds.json").unwrap();
-            let reader = BufReader::new(file);
-            let stream = serde_json::Deserializer::from_reader(reader).into_iter::<serde_json::Value>();
-
-            //let mut structs: Vec<RszStruct<RszField>> = Vec::new();
-            for value in stream {
-                match value {
-                    Ok(json_value) => {
-                        if let serde_json::Value::Object(map) = json_value {
-                            // This is where each struct is actually parsed
-                            for (_key, value) in map {
-                                //println!("{_key:?}, {value:?}");
-                                let mut rsz_struct: RszStructTemp<RszField> =
-                                                    serde_json::from_value(value).expect("Could not parse struct");
-
-                                for field in &mut rsz_struct.fields {
-                                    if field.original_type == "ace.user_data.ExcelUserData.cData[]" {
-                                        field.original_type = rsz_struct.name.clone() + ".cData[]"
-                                    }
-                                }
-                                let rsz_struct: RszStruct<RszField> = RszStruct {
-                                    name: rsz_struct.name,
-                                    crc: u32::from_str_radix(&rsz_struct.crc, 16).unwrap(),
-                                    hash: u32::from_str_radix(&_key, 16).unwrap(),
-                                    fields: rsz_struct.fields
-                                };
-                                m.insert(rsz_struct.hash, rsz_struct);
-                            }
-                        } else {
-                            println!("Expected a JSON object!");
-                        }
-                    }
-                    Err(e) => eprintln!("Error parsing JSON: {}", e),
-                }
-            }
-            m
-        })
-    }
-
-    fn name_map() -> &'static HashMap<String, u32> {
-        #[derive(Debug, Clone, Deserialize)]
-        pub struct RszStructTemp<T> {
-            name: String,
-            crc: String,
-            fields: Vec<T>,
-        }
-        static HASHMAP: OnceLock<HashMap<String, u32>> = OnceLock::new();
-        HASHMAP.get_or_init(|| {
-            let mut m = HashMap::new();
-            let file = std::fs::File::open("rszmhwilds.json").unwrap();
-            let reader = BufReader::new(file);
-            let stream = serde_json::Deserializer::from_reader(reader).into_iter::<serde_json::Value>();
-
-            //let mut structs: Vec<RszStruct<RszField>> = Vec::new();
-            for value in stream {
-                match value {
-                    Ok(json_value) => {
-                        if let serde_json::Value::Object(map) = json_value {
-                            // This is where each struct is actually parsed
-                            for (_key, value) in map {
-                                //println!("{_key:?}, {value:?}");
-                                let rsz_struct: RszStructTemp<RszField> =
-                                                serde_json::from_value(value).expect("Could not parse struct");
-                                let rsz_struct: RszStruct<RszField> = RszStruct {
-                                    name: rsz_struct.name,
-                                    crc: u32::from_str_radix(&rsz_struct.crc, 16).unwrap(),
-                                    hash: u32::from_str_radix(&_key, 16).unwrap(),
-                                    fields: rsz_struct.fields
-                                };
-                                m.insert(rsz_struct.name, rsz_struct.hash);
-                            }
-                        } else {
-                            println!("Expected a JSON object!");
-                        }
-                    }
-                    Err(e) => eprintln!("Error parsing JSON: {}", e),
-                }
-            }
-            m
-        })
-    }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct DeRsz {
@@ -420,26 +408,4 @@ impl<'a> Serialize for DeRsz {
     }
 }
 
-
-fn enum_map() -> &'static HashMap<String, HashMap<String, String>> {
-    static HASHMAP: OnceLock<HashMap<String, HashMap<String, String>>> = OnceLock::new();
-    HASHMAP.get_or_init(|| {
-        let json_data = std::fs::read_to_string("enums.json").unwrap();
-        let hashmap: HashMap<String, HashMap<String, String>> = serde_json::from_str(&json_data).unwrap();
-        hashmap
-    })
-}
-
-fn get_enum_name(name: String, value: String) -> Option<String> {
-    let name = name.replace("[]", "").replace("_Serializable", "_Fixed");
-    if let Some(map) = enum_map().get(&name) {
-        if let Some(value) = map.get(&value){
-            Some(value.to_string())
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
 

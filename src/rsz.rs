@@ -1,13 +1,9 @@
-mod enums;
-mod dersz;
-
-pub use dersz::*;
-
+use crate::dersz::*;
 use crate::file_ext::*;
 use anyhow::{bail, Context, Result};
 use serde::*;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::{TryFrom};
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
