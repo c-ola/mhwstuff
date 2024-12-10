@@ -22,5 +22,7 @@ cargo run -- -f <file_name>
 
 .user files
 ```
-cargo run -- -d -f <path/to/game/native>
+cargo run -- -u \ # dump user files
+    -m \ # dump msg files
+    -r <path/to/game/native> -o <output/directory> -l <list of files to process>
 ```
