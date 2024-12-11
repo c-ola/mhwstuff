@@ -1,14 +1,14 @@
 use std::{
-    collections::HashMap, fs::read_to_string, io::{BufReader, ErrorKind, Read, Seek}, path::PathBuf, sync::OnceLock
+    collections::HashMap, io::{BufReader, Read, Seek}, path::PathBuf, sync::OnceLock
 };
 
 use crate::file_ext::*;
 
 use anyhow::{anyhow, Context};
 use nalgebra_glm::{Mat4x4, Vec2, Vec3, Vec4};
-use serde::{de::value::UnitDeserializer, ser::{SerializeMap, SerializeSeq, SerializeStruct}, Deserialize, Serialize};
+use serde::{ser::{SerializeSeq, SerializeStruct}, Deserialize, Serialize};
 use uuid::Uuid;
-use super::TypeDescriptor;
+use crate::rsz::TypeDescriptor;
 
 // enums to hold values in a lightweight Rsz Struct
 #[derive(Debug, Clone)]
@@ -41,21 +41,23 @@ pub enum RszType {
     Vec2(Vec2), // might all be vec4
     Vec3(Vec3),
     Vec4(Vec4),
+    Quaternion((f32, f32, f32, f32)),
 
     Range((u32, u32)),
     RangeI((i32, i32)),
 
     // Shapes
-    AABB(Vec3, Vec3),
-    Capsule(Vec3, Vec3, Vec3),
+    AABB((Vec3, Vec3)),
+    Capsule((Vec3, Vec3, Vec3)),
     // ...
-    Rect(u32, u32, u32, u32),
-    
+    Rect((u32, u32, u32, u32)),
+    Color((u8, u8, u8, u8)),
     Bool(bool),
     String(String),
     Guid([u8; 16]),
     Array(Vec<RszType>),
     Object(RszStruct<RszField>, u32),
+    Struct(RszStruct<RszType>),
     Enum(Box<RszType>, String),
     OBB,
     Data(Vec<u8>),
@@ -80,15 +82,25 @@ impl RszType {
             "F32" => RszType::F32(data.read_f32()?),
             "F64" => RszType::F64(data.read_f64()?),
 
-            "UInt2" => RszType::UInt2((data.read_u32()?, data.read_u32()?)),
-            "UInt3" => RszType::UInt3((data.read_u32()?, data.read_u32()?, data.read_u32()?)),
-            "UInt4" => RszType::UInt4((data.read_u32()?, data.read_u32()?, data.read_u32()?, data.read_u32()?)),
+            "Uint2" => RszType::UInt2((data.read_u32()?, data.read_u32()?)),
+            "Uint3" => RszType::UInt3((data.read_u32()?, data.read_u32()?, data.read_u32()?)),
+            "Uint4" => RszType::UInt4((data.read_u32()?, data.read_u32()?, data.read_u32()?, data.read_u32()?)),
+            "Color" => RszType::Color((data.read_u8()?, data.read_u8()?, data.read_u8()?, data.read_u8()?)),
             "Int2" => RszType::Int2((data.read_i32()?, data.read_i32()?)),
             "Int3" => RszType::Int3((data.read_i32()?, data.read_i32()?, data.read_i32()?)),
             "Int4" => RszType::Int4((data.read_i32()?, data.read_i32()?, data.read_i32()?, data.read_i32()?)),
-            "Vec2" => RszType::Vec2(data.read_f32vec2()?),
-            "Vec3" => RszType::Vec3(data.read_f32vec3()?),
+            "Vec2" => {
+                let x = RszType::Vec2(data.read_f32vec2()?);
+                data.seek(std::io::SeekFrom::Current(8))?;
+                x
+            },
+            "Vec3" => {
+                let x = RszType::Vec3(data.read_f32vec3()?);
+                data.seek(std::io::SeekFrom::Current(4))?;
+                x
+            },
             "Vec4" => RszType::Vec4(data.read_f32vec4()?),
+            "Quaternion" => RszType::Quaternion((data.read_f32()?, data.read_f32()?, data.read_f32()?, data.read_f32()?)),
             "Float2" => RszType::Float2(data.read_f32vec2()?),
             "Float3" => RszType::Float3(data.read_f32vec3()?),
             "Float4" => RszType::Float4(data.read_f32vec4()?),
@@ -106,34 +118,48 @@ impl RszType {
                 RszType::Data(v)
             },
             "AABB" => {
-                RszType::AABB(data.read_f32vec3()?, data.read_f32vec3()?)
+                RszType::AABB((data.read_f32vec3()?, data.read_f32vec3()?))
             },
             "Capsule" => {
-                RszType::Capsule(data.read_f32vec3()?, data.read_f32vec3()?, data.read_f32vec3()?)
+                RszType::Capsule((data.read_f32vec3()?, data.read_f32vec3()?, data.read_f32vec3()?))
             },
             "Rect" => {
-                RszType::Rect(data.read_u32()?, data.read_u32()?, data.read_u32()?, data.read_u32()?)
+                RszType::Rect((data.read_u32()?, data.read_u32()?, data.read_u32()?, data.read_u32()?))
             },
-            /*"OBB" => {
+            "OBB" => {
                 data.seek_relative(field.size.into())?;
                 RszType::OBB
-            },*/
+            },
             "Guid" => {
                 let mut buf = [0; 16];
                 for i in 0..16 {
                     buf[i] = data.read_u8()?;
                 }
-                RszType::Guid(buf) // make it read
+                RszType::Guid(buf) // make it read ?????? idek what this comment means
             },
             "Bool" => RszType::Bool(data.read_bool()?),
             "String" | "Resource" => RszType::String(data.read_utf16str()?),
-            "Object" | "UserData" | "RuntimeType" => {
+            "Struct" => {
                 let x;
-                if let Some(mapped_crc) = RszDump::name_map().get(&field.original_type) {
-                    if let Some(r#struct) = RszDump::crc_map().get(&mapped_crc) {
+                if let Some(mapped_hash) = RszDump::name_map().get(&field.original_type) {
+                    if let Some(r#struct) = RszDump::rsz_map().get(&mapped_hash) {
+                        let v = RszDump::parse_struct(data, TypeDescriptor{hash: *mapped_hash, crc: r#struct.crc})?;
+                        x = RszType::Struct(v)
+                    } else {
+                        return Err(anyhow!("Name hash not in hash map {:X}", mapped_hash))
+                    };
+                } else {
+                    return Err(anyhow!("field original type {:?} not in dump map", field))
+                };
+                x
+            },
+            "Object" | "UserData" /*| "RuntimeType" FIGURE OUT WHAT TO DO WITH THIS THING*/=> {
+                let x;
+                if let Some(mapped_hash) = RszDump::name_map().get(&field.original_type) {
+                    if let Some(r#struct) = RszDump::rsz_map().get(&mapped_hash) {
                         x = RszType::Object(r#struct.clone(), data.read_u32()?)
                     } else {
-                        return Err(anyhow!("Name crc not in hash map {:X}", mapped_crc))
+                        return Err(anyhow!("Name crc not in hash map {:X}", mapped_hash))
                     };
                 } else {
                     return Err(anyhow!("field original type {:?} not in dump map", field))
@@ -193,13 +219,21 @@ impl<'a> Serialize for RszTypeWithInfo<'a> {
             Float3(v) => v.serialize(serializer),
             Float4(v) => v.serialize(serializer),
             Mat4x4(v) => v.serialize(serializer),
+            RszType::Color(v) => v.serialize(serializer),
+            RszType::Quaternion(v) => v.serialize(serializer),
 
             Range(v) => v.serialize(serializer),
             RangeI(v) => v.serialize(serializer),
-
+            AABB(v) => v.serialize(serializer),
+            Capsule(v) => v.serialize(serializer),
+            Rect(v) => v.serialize(serializer),
             Guid(id) => {
                 let id = Uuid::from_bytes_le(*id);
                 serializer.serialize_str(&id.to_string().as_str())
+            },
+            RszType::Struct(r#struct) => {
+                let val = RszValueWithInfo(r#struct, structs);
+                val.serialize(serializer)
             },
             Object(_info, ptr) => {
                 match &structs.get(*ptr as usize) {
@@ -227,6 +261,10 @@ impl<'a> Serialize for RszTypeWithInfo<'a> {
                                 return Err(serde::ser::Error::custom("Could not find Enum Object pointer in data"))
                             }
                         };
+
+                        /*if struct_derefed.fields.len() == 0 {
+                            return serializer.serialize_str(format!("{}, {:?}", ptr, struct_derefed).as_str());
+                        }*/
                         let x = struct_derefed.fields[0].clone();
                         //serializer.serialize_str(format!("{x:?} name goes here").as_str());
                         let v = match x {
@@ -337,7 +375,7 @@ impl<'a> Serialize for RszValueWithInfo<'a> {
 
             let r#struct = self.0;
             let context = self.1;
-            let struct_info = RszDump::crc_map().get(&r#struct.hash).expect("Could not find struct in dump");
+            let struct_info = RszDump::rsz_map().get(&r#struct.hash).expect("Could not find struct in dump");
             let mut state = serializer.serialize_struct("RszValue", r#struct.fields.len())?;
             for i in 0..struct_info.fields.len() {
                 let field_value = &r#struct.fields[i];
@@ -357,14 +395,14 @@ pub struct RszDump;
 
 impl RszDump {
     pub fn parse_struct<'a, F: 'a + Read + Seek>(
-        mut data: F,
+        data: &mut F,
         type_descriptor: TypeDescriptor,
     ) -> anyhow::Result<RszValue> {
-        let struct_type = RszDump::crc_map()
+        let struct_type = RszDump::rsz_map()
             .get(&type_descriptor.hash)
             .with_context(|| format!("Unexpected Type: not in Rsz Dump"))?;
         
-        println!("{:?}", struct_type);
+        //println!("{:#?}", struct_type);
         let mut field_values = Vec::new();
         for field in &struct_type.fields {
             if field.array {
@@ -373,15 +411,15 @@ impl RszDump {
                 })?;
                 let count = data.read_u32()?;
                 let vals = (0..count).map(|_| {
-                    RszType::from_field(&mut data, field)
+                    RszType::from_field(data, field)
                 }).collect::<anyhow::Result<Vec<RszType>>>()?;
                 field_values.push(RszType::Array(vals));
             } else {
-                let r#type = RszType::from_field(&mut data, field)?;
+                let r#type = RszType::from_field(data, field)?;
                 field_values.push(r#type);
             }
         }
-        println!("{:?}", field_values);
+        //println!("{:#?}", field_values);
         Ok(RszValue {
             name: struct_type.name.clone(),
             crc: struct_type.crc,
@@ -390,7 +428,7 @@ impl RszDump {
         })
     }
 
-    fn crc_map() -> &'static HashMap<u32, RszStruct<RszField>> {
+    fn rsz_map() -> &'static HashMap<u32, RszStruct<RszField>> {
         #[derive(Debug, Clone, Deserialize)]
         pub struct RszStructTemp<T> {
             name: String,
@@ -499,7 +537,7 @@ impl<'a> Serialize for DeRsz {
             for i in 0..self.roots.len() {
             //for root in &self.roots { // do this to wrap in with context
                 let r#struct = self.roots[i].clone();
-                let x = RszDump::crc_map().get(&r#struct.hash);
+                let x = RszDump::rsz_map().get(&r#struct.hash);
                 let name = match x {
                     Some(v) => &v.name,
                     None => "unknown struct?"

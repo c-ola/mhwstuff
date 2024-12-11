@@ -5,9 +5,9 @@ mod compression;
 mod file_ext;
 mod msg;
 mod rsz;
-mod suffix;
 mod tex;
 mod user;
+mod dersz;
 
 extern crate image;
 

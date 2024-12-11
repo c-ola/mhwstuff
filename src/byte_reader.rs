@@ -1,4 +1,3 @@
-use anyhow::bail;
 use byteorder::{self, LittleEndian, ReadBytesExt};
 use std::{fs::{self}, io::{Error, ErrorKind, Result}};
 

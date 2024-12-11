@@ -1,30 +1,13 @@
-mod dersz;
 
-pub use dersz::*;
+use crate::dersz::*;
 
 use crate::file_ext::*;
 use anyhow::{bail, Context, Result};
 use serde::*;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Seek, SeekFrom};
-
-/****
-
-Version list:
-
-0        = 3.6.1.0
-10_00_02 = 10.0.2.0
-10_00_03 = 10.0.3.0
-11_00_01 = 11.0.1.0
-11_00_02 = 11.0.2.0
-12_00_00 = 12.0.0.0
-12_00_01 = 12.0.1.1
-13_00_00 = 13.0.0.0
--        = 13.0.0.1
-
-****/
 
 #[derive(Debug)]
 pub struct Extern {
@@ -47,12 +30,14 @@ pub struct Rsz {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum NodeSlot {
     None,
     Extern(String),
     Instance(RszValue),
 }
 
+#[allow(dead_code)]
 impl NodeSlot {
     fn get_extern(&self) -> Result<&str> {
         match self {
@@ -173,7 +158,7 @@ impl Rsz {
 
     pub fn deserializev2(&self) -> Result<DeRsz> {
         let mut node_buf: Vec<NodeSlot> = vec![NodeSlot::None];
-        println!("{:?}", &self.data[0..128]);
+        //println!("{:?}", &self.data[0..128]);
         let mut cursor = Cursor::new(&self.data);
         let mut structs: Vec<RszValue> = Vec::new();
 
@@ -187,9 +172,9 @@ impl Rsz {
                 continue;
             }
 
-            println!("{hash:08x}, {crc:08x}");
+            //println!("{hash:08x}, {crc:08x}");
             let something = RszDump::parse_struct(&mut cursor, TypeDescriptor{hash, crc})?;
-            println!("{something:?}");
+            //println!("{something:?}");
             structs.push(something);
         }
  
@@ -234,6 +219,7 @@ impl Rsz {
 
 
 #[derive(Debug, Serialize, Clone)]
+#[allow(dead_code)]
 pub enum ExternUser<T> {
     Path(String),
     Loaded(T),
