@@ -12,7 +12,7 @@ mod user;
 extern crate image;
 
 use std::io::*;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use msg::Msg;
 use std::fs::{self, read_to_string, write, File, ReadDir};
 use std::io::{Read, Write};
@@ -43,8 +43,15 @@ struct Args {
     dump_msg: bool,
 }
 
-fn dump_users(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> anyhow::Result<()> {
-    for file in files {
+/*#[derive(Debug, Subcommand)]
+enum Dump {
+    DumpUser {
+    }
+}*/
+
+
+fn dump_users(root_dir: PathBuf, files: Vec<&str>, out_dir: &PathBuf) -> anyhow::Result<()> {
+    for file in &files {
         let full_file_path = root_dir.join(file);
         println!("Reading file {full_file_path:?}");
         let rsz = User::new(File::open(full_file_path)?)?.rsz;
@@ -52,18 +59,28 @@ fn dump_users(root_dir: PathBuf, files: Vec<&str>, subdir: &str) -> anyhow::Resu
         match res {
             Ok(nodes) => {
                 let file_path = Path::new(file);
-                let mut output_path = PathBuf::from("outputs").join(subdir);
-                output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+                let mut output_path = out_dir.clone();
+                output_path.push(file_path);
+                output_path.set_file_name(output_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+                //output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
 
-                let json = serde_json::to_string_pretty(&nodes)?; 
-                println!("Trying to save to {:?}", &output_path);
-                let _ = fs::create_dir_all(output_path.parent().unwrap())?;
-                let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
-                f.write_all(json.as_bytes())?;
-                println!("Saved file");
+                let json_res = serde_json::to_string_pretty(&nodes); 
+                match json_res {
+                    Ok(json) => {
+                        //println!("Trying to save to {:?}", &output_path);
+                        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+                        let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
+                        f.write_all(json.as_bytes())?;
+                        println!("Saved File {:?}", &output_path);
+                    },
+                    Err(e) => {
+                        eprintln!("[ERROR] File: {file} Reason: {e:?}");
+                        continue
+                    }
+                }
             },
             Err(e) => {
-                eprintln!("{e:?}");
+                eprintln!("[ERROR] File: {file} Reason: {e:?}");
                 continue
             }
 
@@ -110,7 +127,7 @@ fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf>
     results
 }
 
-fn dump_all(root_dir: PathBuf, list_file: Option<String>, do_dump_user: bool, do_dump_msg: bool) -> anyhow::Result<()> {
+fn dump_all(root_dir: PathBuf, out_dir: PathBuf, list_file: Option<String>, do_dump_user: bool, do_dump_msg: bool) -> anyhow::Result<()> {
     if do_dump_user {
         match list_file {
             None => {
@@ -120,16 +137,16 @@ fn dump_all(root_dir: PathBuf, list_file: Option<String>, do_dump_user: bool, do
                     "stm/gamedesign/common/item/itemrecipe.user.3",
                     "stm/gamedesign/common/item/autousehealthitemdata.user.3",
                     "stm/gamedesign/common/item/autousestatusitemdata.user.3",
-                ], "items");
+                ], &out_dir);
                 let _ = dump_users(root_dir.clone(), vec![
                     "stm/gamedesign/common/equip/skilldata.user.3",
                     "stm/gamedesign/common/equip/skillcommondata.user.3",
-                ], "skills");
+                ], &out_dir);
             },
             Some(file_name) => {
                 let list = read_to_string(&file_name).expect(format!("Could not open file {file_name}").as_str());
                 let list = list.lines().collect();
-                dump_users(root_dir.clone(), list, "dump")?;
+                dump_users(root_dir.clone(), list, &out_dir)?;
             }
         }
     }
@@ -148,7 +165,7 @@ fn main() -> anyhow::Result<()> {
     if args.dump_msg || args.dump_user  {
         if let Some(dir) = args.root_dir {
             let base_dir = PathBuf::from(dir.clone());
-            dump_all(base_dir, args.list, args.dump_user, args.dump_msg)?;
+            dump_all(base_dir, args.out_dir.into(), args.list, args.dump_user, args.dump_msg)?;
         } else {
             println!("Please provide a directory to natives folder when using dump all");
         }

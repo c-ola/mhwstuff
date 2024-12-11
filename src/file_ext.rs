@@ -15,6 +15,7 @@ pub trait ReadExt {
     fn read_i64(&mut self) -> Result<i64>;
     fn read_magic(&mut self) -> Result<[u8; 4]>;
     fn read_u16str(&mut self) -> Result<String>;
+    fn read_utf16str(&mut self) -> Result<String>;
     fn read_u8str(&mut self) -> Result<String>;
     fn read_f32(&mut self) -> Result<f32>;
     fn read_f64(&mut self) -> Result<f64>;
@@ -84,6 +85,17 @@ impl<T: Read + ?Sized> ReadExt for T {
         self.read_exact(&mut buf)?;
         Ok(buf)
     }
+
+    fn read_utf16str(&mut self) -> Result<String> {
+        let mut s = vec![];
+        let n = self.read_u32()?;
+        for _i in 0..n {
+            let c = self.read_u16()?;
+            s.push(c);
+        }
+        Ok(String::from_utf16(&s)?)
+    }
+
     fn read_u16str(&mut self) -> Result<String> {
         let mut u16str = vec![];
         loop {
@@ -95,6 +107,7 @@ impl<T: Read + ?Sized> ReadExt for T {
         }
         Ok(String::from_utf16(&u16str)?)
     }
+
     fn read_u8str(&mut self) -> Result<String> {
         let mut u8str = vec![];
         loop {

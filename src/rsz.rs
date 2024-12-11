@@ -1,4 +1,3 @@
-mod enums;
 mod dersz;
 
 pub use dersz::*;
@@ -174,6 +173,7 @@ impl Rsz {
 
     pub fn deserializev2(&self) -> Result<DeRsz> {
         let mut node_buf: Vec<NodeSlot> = vec![NodeSlot::None];
+        println!("{:?}", &self.data[0..128]);
         let mut cursor = Cursor::new(&self.data);
         let mut structs: Vec<RszValue> = Vec::new();
 
@@ -183,12 +183,13 @@ impl Rsz {
                     bail!("Extern hash mismatch")
                 }
                 node_buf.push(NodeSlot::Extern(slot_extern.path.clone()));
+                println!("{:?}", node_buf);
                 continue;
             }
 
-            //println!("{hash:08x}, {crc:08x}");
+            println!("{hash:08x}, {crc:08x}");
             let something = RszDump::parse_struct(&mut cursor, TypeDescriptor{hash, crc})?;
-            //println!("{something:?}");
+            println!("{something:?}");
             structs.push(something);
         }
  
@@ -209,7 +210,7 @@ impl Rsz {
         cursor.read_to_end(&mut leftover)?;
         if !leftover.is_empty() {
             //bail!("Left over data {leftover:?}");
-            eprintln!("Left over data {leftover:?}");
+            println!("Left over data {leftover:?}");
         }
 
         Ok(DeRsz{
