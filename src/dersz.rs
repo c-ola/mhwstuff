@@ -1,3 +1,4 @@
+use core::str;
 use std::{
     collections::HashMap, io::{BufReader, Read, Seek}, sync::OnceLock
 };
@@ -57,6 +58,7 @@ pub enum RszType {
     Guid([u8; 16]),
     Array(Vec<RszType>),
     Object(RszStruct<RszField>, u32),
+    RuntimeType(String),
     Struct(RszStruct<RszType>),
     Enum(Box<RszType>, String),
     OBB,
@@ -153,7 +155,16 @@ impl RszType {
                 };
                 x
             },
-            "Object" | "UserData" /*| "RuntimeType" FIGURE OUT WHAT TO DO WITH THIS THING*/=> {
+            "RuntimeType" => {
+                let size = data.read_u32()?;
+                let mut buf = vec![];
+                for _ in 0..size {
+                    buf.push(data.read_u8()?);
+                }
+                let rtype = str::from_utf8(&buf)?.to_string();
+                RszType::RuntimeType(rtype)
+            },
+            "Object" | "UserData" => {
                 let x;
                 if let Some(mapped_hash) = RszDump::name_map().get(&field.original_type) {
                     if let Some(r#struct) = RszDump::rsz_map().get(&mapped_hash) {
@@ -235,6 +246,7 @@ impl<'a> Serialize for RszTypeWithInfo<'a> {
                 let val = RszValueWithInfo(r#struct, structs);
                 val.serialize(serializer)
             },
+            RuntimeType(v) => v.serialize(serializer),
             Object(_info, ptr) => {
                 match &structs.get(*ptr as usize) {
                     Some(struct_derefed) => {

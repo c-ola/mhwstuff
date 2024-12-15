@@ -168,7 +168,7 @@ impl Rsz {
                     bail!("Extern hash mismatch")
                 }
                 node_buf.push(NodeSlot::Extern(slot_extern.path.clone()));
-                println!("{:?}", node_buf);
+                //println!("{:?}", node_buf);
                 continue;
             }
 
