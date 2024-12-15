@@ -12,10 +12,11 @@ mod dersz;
 extern crate image;
 
 use std::io::*;
-use clap::{Parser, Subcommand};
+use anyhow::anyhow;
+use clap::Parser;
 use msg::Msg;
-use std::fs::{self, read_to_string, write, File, ReadDir};
-use std::io::{Read, Write};
+use std::fs::{self, read_to_string,File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tex::Tex;
@@ -35,75 +36,138 @@ struct Args {
 
     #[arg(short('o'), long, default_value_t = String::from("outputs"))]
     out_dir: String,
-
-    #[arg(short('u'), long, default_value_t = false)]
-    dump_user: bool,
-    
-    #[arg(short('m'), long, default_value_t = false)]
-    dump_msg: bool,
 }
 
-/*#[derive(Debug, Subcommand)]
-enum Dump {
-    DumpUser {
-    }
-}*/
-
-
-fn dump_users(root_dir: PathBuf, files: Vec<&str>, out_dir: &PathBuf) -> anyhow::Result<()> {
-    for file in &files {
-        let full_file_path = root_dir.join(file);
-        println!("Reading file {full_file_path:?}");
-        let rsz = User::new(File::open(full_file_path)?)?.rsz;
-        let res = rsz.deserializev2();
-        match res {
-            Ok(nodes) => {
-                let file_path = Path::new(file);
-                let mut output_path = out_dir.clone();
-                output_path.push(file_path);
-                output_path.set_file_name(output_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
-                //output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
-
-                let json_res = serde_json::to_string_pretty(&nodes); 
-                match json_res {
-                    Ok(json) => {
-                        //println!("Trying to save to {:?}", &output_path);
-                        let _ = fs::create_dir_all(output_path.parent().unwrap())?;
-                        let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
-                        f.write_all(json.as_bytes())?;
-                        println!("Saved File {:?}", &output_path);
-                    },
-                    Err(e) => {
-                        eprintln!("[ERROR] File: {file} Reason: {e:?}");
-                        continue
-                    }
+fn construct_paths(file: String, prefix: Option<String>, out_dir_base: String, preserve_structure: bool) -> Result<(PathBuf, PathBuf)> {
+    let full_file_path = match prefix {
+        Some(ref prefix) => Path::new(&prefix).join(&file),
+        None => PathBuf::from(&file),
+    };
+    let output_path = PathBuf::from(out_dir_base).join(
+        if preserve_structure {
+            match prefix {
+                Some(ref prefix) => {
+                    let file = Path::new(&full_file_path);
+                    file.strip_prefix(prefix).unwrap().to_str().unwrap()
                 }
-            },
-            Err(e) => {
-                eprintln!("[ERROR] File: {file} Reason: {e:?}");
-                continue
+                None => &file
             }
-
-        }
-    }
-    Ok(())
-}
-
-fn dump_msg(base_dir: PathBuf) -> Result<()> {
-    let files = find_files_with_extension(base_dir, ".msg.23");
-
-    for file in &files {
-        println!("{file:?}");
-        if let Result::Ok(msg) = Msg::new(file.to_str().unwrap().to_string()) {
-            msg.save(file.file_name().unwrap().to_str().expect("This should not have been able to happen"));
         } else {
-            eprintln!("Could not convert message file {}", file.display());
+            let file = Path::new(&file);
+            let path = file.file_name().unwrap().to_str().unwrap();
+            path
         }
-    }
+    );
 
-    Ok(())
+    Ok((full_file_path, output_path))
 }
 
+enum FileType {
+    Msg(u32),
+    User(u32),
+    Tex(u32),
+    Unknown
+}
+
+fn get_file_ext(file_name: String) -> Result<FileType> {
+    let split = file_name.split('.').collect::<Vec<_>>();
+
+    let version = match u32::from_str_radix(split[split.len() - 1], 10) {
+        Ok(val) => val,
+        Err(e) => return Err(Error::new(ErrorKind::Other, format!("{e}"))),
+    };
+
+    let file_type = match split.get(split.len() - 2) {
+        Some(ext) => {
+            match *ext {
+                "user" => FileType::User(version),
+                "msg" => FileType::Msg(version),
+                "tex" => FileType::Tex(version),
+                _ => FileType::Unknown
+            }
+        },
+        None => {
+            FileType::Unknown
+        }
+    };
+
+    Ok(file_type)
+}
+
+fn dump_file(file_path: PathBuf, output_path: PathBuf) -> anyhow::Result<()> {
+    //output_path.set_file_name(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+    let file_name = match file_path.file_name() {
+        Some(file_name) => file_name,
+        None => {
+            return Err(anyhow!("Path does not contain file"));
+        }
+    };
+    let file_type = get_file_ext(file_name.to_string_lossy().to_string())?;
+    let res = match file_type {
+        FileType::Msg(_v) => {
+            let mut output_path = output_path.clone();
+            output_path.set_file_name(output_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+            let msg = Msg::new(file_path.to_string_lossy().to_string())?;
+
+            println!("Trying to save to {:?}", &output_path);
+            let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+            let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
+            msg.save(&mut f);
+            println!("Saved file");
+            Ok(())
+        },
+        FileType::User(_v) => {
+            let rsz = User::new(File::open(file_path.clone())?)?.rsz;
+            let res = rsz.deserializev2();
+            let res = match res {
+                Ok(nodes) => {
+                    let mut output_path = output_path.clone();
+                    output_path.set_file_name(output_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+                    //output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
+
+                    let json_res = serde_json::to_string_pretty(&nodes); 
+                    match json_res {
+                        Ok(json) => {
+                            let _ = fs::create_dir_all(output_path.parent().unwrap())?;
+                            let mut f = std::fs::File::create(&output_path).expect("Error Creating File");
+                            f.write_all(json.as_bytes())?;
+                            println!("[INFO] Saved File {:?}", &output_path);
+                            Ok(())
+                        },
+                        Err(e) => {
+                            Err(anyhow!("File: {file_path:?} Reason: {e:?}"))
+                        }
+                    }
+                },
+                Err(e) => {
+                    Err(anyhow!("File: {file_path:?} Reason: {e:?}"))
+                }
+            };
+            res
+            //Ok(())
+        },
+        FileType::Tex(_v) => {
+            let file_name = file_name.to_string_lossy().to_string();
+            let tex = Tex::new(file_name.clone())?;
+            let rgba = tex.to_rgba(0)?;
+            println!("{}", rgba.data.len());
+            let name = format!("{}_{}.png", file_name, 0);
+            println!("saving to {name}");
+            let _ = image::save_buffer(
+                &Path::new(&name),
+                &rgba.data,
+                rgba.width,
+                rgba.height,
+                image::ExtendedColorType::Rgba8,
+            );
+            Ok(())
+        },
+        FileType::Unknown => return Err(anyhow!("Unknown File Type")),
+    };
+    res
+}
+
+#[allow(dead_code)]
 fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf> {
     let mut results = Vec::new();
     let mut paths: Vec<PathBuf> = Vec::new();
@@ -127,82 +191,46 @@ fn find_files_with_extension(base_dir: PathBuf, extension: &str) -> Vec<PathBuf>
     results
 }
 
-fn dump_all(root_dir: PathBuf, out_dir: PathBuf, list_file: Option<String>, do_dump_user: bool, do_dump_msg: bool) -> anyhow::Result<()> {
-    if do_dump_user {
-        match list_file {
-            None => {
-                let _ = dump_users(root_dir.clone(), vec![
-                    "stm/gamedesign/common/item/itemdata.user.3",
-                    "stm/gamedesign/common/item/fixitems.user.3",
-                    "stm/gamedesign/common/item/itemrecipe.user.3",
-                    "stm/gamedesign/common/item/autousehealthitemdata.user.3",
-                    "stm/gamedesign/common/item/autousestatusitemdata.user.3",
-                ], &out_dir);
-                let _ = dump_users(root_dir.clone(), vec![
-                    "stm/gamedesign/common/equip/skilldata.user.3",
-                    "stm/gamedesign/common/equip/skillcommondata.user.3",
-                ], &out_dir);
-            },
-            Some(file_name) => {
-                let list = read_to_string(&file_name).expect(format!("Could not open file {file_name}").as_str());
-                let list = list.lines().collect();
-                dump_users(root_dir.clone(), list, &out_dir)?;
+fn dump_all(root_dir: Option<String>, out_dir: String, list_file: String) -> anyhow::Result<()> {
+    let list = read_to_string(&list_file).expect(format!("Could not open file {list_file}").as_str());
+    let list: Vec<&str> = list.lines().collect();
+    for file in list {
+        let paths = construct_paths(file.to_string(), root_dir.clone(), out_dir.clone(), true);
+        let (file_path, output_path) = match paths {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("[ERROR] Could not create file path and output path {e}");
+                continue
             }
-        }
-    }
-    if do_dump_msg {
-        let _ = dump_msg(root_dir.join("stm/gamedesign/"));
+        };
+        match dump_file(file_path, output_path) {
+            Ok(()) => (),
+            Err(e) => {
+                eprintln!("[ERROR] Error dumping file {e}");
+                continue
+            }
+        };
     }
     Ok(())
 }
 
+
+
 fn main() -> anyhow::Result<()> {
     let now = SystemTime::now();
     let args = Args::parse();
-    println!("{:?}", args);
-
-
-    if args.dump_msg || args.dump_user  {
-        if let Some(dir) = args.root_dir {
-            let base_dir = PathBuf::from(dir.clone());
-            dump_all(base_dir, args.out_dir.into(), args.list, args.dump_user, args.dump_msg)?;
-        } else {
-            println!("Please provide a directory to natives folder when using dump all");
-        }
-        return Ok(())
-    } else if let Some(file_name) = args.file_name {
-        if file_name.ends_with("msg.23") {
-            let msg = Msg::new(file_name.clone())?;
-            msg.save(&file_name.clone());
-        } else if file_name.ends_with("user.3") {
-            let re_dump = User::new(File::open(&file_name)?)?
-                .rsz
-                .deserializev2()
-                .unwrap();
-
-            let file_path = Path::new(&file_name);
-            let mut output_path = PathBuf::from("outputs").join("user");
-            output_path.push(file_path.file_name().unwrap().to_str().unwrap().to_string() + ".json");
-
-            println!("Trying to save to {:?}", &output_path);
-            let _ = fs::create_dir_all(output_path.parent().unwrap())?;
-            let f = std::fs::File::create(&output_path).expect("Error Creating File");
-            serde_json::to_writer_pretty(f, &re_dump)?;
-            println!("Saved file");
-            //println!("{}", serde_json::to_string_pretty(&re_dump)?);
-        } else {
-            let tex = Tex::new(file_name.clone())?;
-            let rgba = tex.to_rgba(0)?;
-            println!("{}", rgba.data.len());
-            let name = format!("{}_{}.png", file_name, 0);
-            println!("saving to {name}");
-            let _ = image::save_buffer(
-                &Path::new(&name),
-                &rgba.data,
-                rgba.width,
-                rgba.height,
-                image::ExtendedColorType::Rgba8,
-            );
+    println!("{:#?}", args);
+    
+    match args.list {
+        Some(list) => {
+            dump_all(args.root_dir, args.out_dir, list)?;
+        }, 
+        None => match args.file_name {
+            Some(file_name) => {
+                let (file_path, output_path) = construct_paths(file_name.clone(), args.root_dir.clone(), args.out_dir.clone(), false)?;
+                dump_file(file_path, output_path)?;
+            },
+            None => println!("Must provide file name"),
         }
     }
     println!("Time taken: {} ms", now.elapsed().unwrap().as_millis());

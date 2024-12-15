@@ -1,6 +1,7 @@
 use crate::byte_reader::BytesFile;
+use crate::bitfield::BitField;
 use crate::compression::{
-    Bc1Unorm, Bc3Unorm, Bc4Unorm, Bc5Unorm, Bc7Unorm, BitField, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec
+    Bc1Unorm, Bc3Unorm, Bc4Unorm, Bc5Unorm, Bc7Unorm, R8G8B8A8Unorm, R8G8Unorm, R8Unorm, TexCodec
 };
 
 use std::{fmt, io::Result};

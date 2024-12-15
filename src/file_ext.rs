@@ -3,6 +3,8 @@ use anyhow::{bail, Result};
 use nalgebra_glm::*;
 use std::convert::TryInto;
 use std::io::{Read, Seek};
+
+#[allow(dead_code)]
 pub trait ReadExt {
     fn read_bool(&mut self) -> Result<bool>;
     fn read_u8(&mut self) -> Result<u8>;
@@ -25,6 +27,7 @@ pub trait ReadExt {
     fn read_f32m4x4(&mut self) -> Result<Mat4x4>;
 }
 
+#[allow(dead_code)]
 pub trait SeekExt {
     fn seek_noop(&mut self, from_start: u64) -> Result<u64>;
     fn seek_assert_align_up(&mut self, from_start: u64, align: u64) -> Result<u64>;

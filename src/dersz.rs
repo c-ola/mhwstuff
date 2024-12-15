@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, io::{BufReader, Read, Seek}, path::PathBuf, sync::OnceLock
+    collections::HashMap, io::{BufReader, Read, Seek}, sync::OnceLock
 };
 
 use crate::file_ext::*;
@@ -246,6 +246,9 @@ impl<'a> Serialize for RszTypeWithInfo<'a> {
                         Err(serde::ser::Error::custom("Could not find Object pointer in data"))
                     }
                 }
+            },
+            RszType::Data(val) => {
+                val.serialize(serializer)
             },
             Enum(underlying, name) => {
                 let underlying = *underlying.clone();

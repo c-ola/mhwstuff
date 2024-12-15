@@ -1,5 +1,7 @@
-use std::{collections::HashMap, fs::File, io::Result, path::PathBuf};
+use core::str;
+use std::{collections::HashMap, io::{Error, ErrorKind, Result, Write}};
 
+use anyhow::anyhow;
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -44,7 +46,12 @@ impl Msg {
     pub fn new(file_name: String) -> Result<Msg> {
         let mut file = BytesFile::new(file_name)?;
         let _version = file.read::<u32>()?;
-        let _magic = file.readn::<u8, 4>()?;
+        let magic = file.readn::<u8, 4>()?;
+        let magic = str::from_utf8(&magic).unwrap();
+        if magic != "GMSG" {
+            return Err(Error::new(ErrorKind::Other, format!("Invalid Magic {magic}, {_version}")))
+        }
+
         let _header_offset = file.read::<u64>()?;
         let entry_count = file.read::<u32>()?;
         let _type_count = file.read::<u32>()?;
@@ -121,11 +128,7 @@ impl Msg {
         })
     }
 
-    pub fn save(&self, name: &str) {
-        let mut path = PathBuf::from("outputs").join("msg");
-        let _ = std::fs::create_dir_all(&path);
-        path.push(name);
-        let file: File = std::fs::File::create(path).expect("nah");
+    pub fn save(&self, writer: &mut dyn Write) {
         #[derive(Serialize)]
         struct EntryInfo {
             name: String,
@@ -142,6 +145,6 @@ impl Msg {
                 })
             }).collect();
         let json_map = json!(map);
-        serde_json::to_writer_pretty(&file, &json_map).unwrap();
-}
+        serde_json::to_writer_pretty(writer, &json_map).unwrap();
+    }
 }

@@ -1,66 +1,11 @@
-pub trait BitField<Bits> {
-    type Output;
-    fn bit_split(self, bits: Bits) -> Self::Output;
-}
-
-macro_rules! smash {
-    ($a:ident) => {
-        usize
-    };
-}
-
-macro_rules! smash2 {
-    ($a:ident, $b:ty) => {
-        $b
-    };
-}
-
-macro_rules! impl_bit {
-    ($base_type:ty, $($a:ident),+) => {
-        impl BitField<($(smash!($a)),*)> for $base_type {
-            type Output = ($(smash2!($a, $base_type)),*);
-            #[allow(unused_assignments)]
-            fn bit_split(mut self, ($($a),*): ($(smash!($a)),*)) -> Self::Output {
-                if 0 $(+$a)* != std::mem::size_of::<$base_type>() * 8 {
-                    panic!();
-                }
-                $(
-                    let t = self & ((1 << $a) - 1);
-                    self >>= $a;
-                    let $a = t;
-                )*
-
-                ($($a),*)
-            }
-        }
-    };
-}
-
-impl_bit!(u8, a, b);
-impl_bit!(u8, a, b, c);
-impl_bit!(u8, a, b, c, d);
-impl_bit!(u8, a, b, c, d, e);
-
-impl_bit!(u16, a, b);
-impl_bit!(u16, a, b, c);
-impl_bit!(u16, a, b, c, d);
-impl_bit!(u16, a, b, c, d, e);
-
-impl_bit!(u32, a, b);
-impl_bit!(u32, a, b, c);
-impl_bit!(u32, a, b, c, d);
-impl_bit!(u32, a, b, c, d, e);
-
-impl_bit!(u64, a, b);
-impl_bit!(u64, a, b, c);
-impl_bit!(u64, a, b, c, d);
-impl_bit!(u64, a, b, c, d, e);
+use crate::bitfield::BitField;
 
 const WEIGHTS2: [u32; 4] = [0, 21, 43, 64];
 const WEIGHTS3: [u32; 8] = [0, 9, 18, 27, 37, 46, 55, 64];
 const WEIGHTS4: [u32; 16] = [0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64];
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 const PARTITION2: [usize; 64 * 16] = [
     0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,        0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,        0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,        0,0,0,1,0,0,1,1,0,0,1,1,0,1,1,1,        0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,1,        0,0,1,1,0,1,1,1,0,1,1,1,1,1,1,1,        0,0,0,1,0,0,1,1,0,1,1,1,1,1,1,1,        0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,1,
     0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,        0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,        0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,        0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,        0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,        0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,        0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,        0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,
@@ -72,6 +17,7 @@ const PARTITION2: [usize; 64 * 16] = [
     0,1,1,0,1,1,0,0,1,1,0,0,1,0,0,1,        0,1,1,0,0,0,1,1,0,0,1,1,1,0,0,1,        0,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,        0,0,0,1,1,0,0,0,1,1,1,0,0,1,1,1,        0,0,0,0,1,1,1,1,0,0,1,1,0,0,1,1,        0,0,1,1,0,0,1,1,1,1,1,1,0,0,0,0,        0,0,1,0,0,0,1,0,1,1,1,0,1,1,1,0,        0,1,0,0,0,1,0,0,0,1,1,1,0,1,1,1
 ];
 
+#[allow(dead_code)]
 #[rustfmt::skip]
 const PARTITION3: [usize; 64 * 16] = [
     0,0,1,1,0,0,1,1,0,2,2,1,2,2,2,2,        0,0,0,1,0,0,1,1,2,2,1,1,2,2,2,1,        0,0,0,0,2,0,0,1,2,2,1,1,2,2,1,1,        0,2,2,2,0,0,2,2,0,0,1,1,0,1,1,1,        0,0,0,0,0,0,0,0,1,1,2,2,1,1,2,2,        0,0,1,1,0,0,1,1,0,0,2,2,0,0,2,2,        0,0,2,2,0,0,2,2,1,1,1,1,1,1,1,1,        0,0,1,1,0,0,1,1,2,2,1,1,2,2,1,1,
@@ -85,16 +31,19 @@ const PARTITION3: [usize; 64 * 16] = [
 ];
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 const ANCHOR_SECOND: [usize; 64] = [
     15,15,15,15,15,15,15,15,        15,15,15,15,15,15,15,15,        15, 2, 8, 2, 2, 8, 8,15,        2, 8, 2, 2, 8, 8, 2, 2,        15,15, 6, 8, 2, 8,15,15,        2, 8, 2, 2, 2,15,15, 6,        6, 2, 6, 8,15,15, 2, 2,        15,15,15,15,15, 2, 2,15
 ];
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 const ANCHOR_THIRD1: [usize; 64] = [
     3, 3,15,15, 8, 3,15,15,        8, 8, 6, 6, 6, 5, 3, 3,        3, 3, 8,15, 3, 3, 6,10,        5, 8, 8, 6, 8, 5,15,15,        8,15, 3, 5, 6,10, 8,15,        15, 3,15, 5,15,15,15,15,        3,15, 5, 5, 5, 8, 5,10,        5,10, 8,13,15,12, 3, 3
 ];
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 const ANCHOR_THIRD2: [usize; 64] = [
     15, 8, 8, 3,15,15, 3, 8,        15,15,15,15,15,15,15, 8,        15, 8,15, 3,15, 8,15, 8,        3,15, 6,10,15,15,10, 8,        15, 3,15,10,10, 8, 9,10,        6,15, 8,15, 3, 6, 6, 8,        15, 3,15,15,15,15,15,15,        15,15,15,15, 3,15,15, 8
 ];
@@ -466,7 +415,9 @@ pub fn bc7_decompress_block<F: FnMut(usize, usize, [u8; 4])>(
     false
 }
 
+#[allow(dead_code)]
 const PACKET_LEN: usize = 16;
+#[allow(dead_code)]
 const BLOCK_LEN: usize = PACKET_LEN * 4 * 8;
 
 fn step<'a>(data: &'_ mut &'a [u8], max_len: usize) -> &'a [u8] {
@@ -476,6 +427,7 @@ fn step<'a>(data: &'_ mut &'a [u8], max_len: usize) -> &'a [u8] {
     ret
 }
 
+#[allow(dead_code)]
 pub trait TexCodec<const CELL_LEN: usize> {
     const CELL_WIDTH: usize;
     const CELL_HEIGHT: usize;
