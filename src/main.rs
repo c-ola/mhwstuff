@@ -199,7 +199,7 @@ fn dump_all(root_dir: Option<String>, out_dir: String, list_file: String) -> any
         let (file_path, output_path) = match paths {
             Ok(p) => p,
             Err(e) => {
-                eprintln!("[ERROR] Could not create file path and output path {e}");
+                eprintln!("[ERROR] Could not create file path {file} and output path {e}");
                 continue
             }
         };
